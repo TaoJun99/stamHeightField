@@ -6,7 +6,8 @@
 #include <string>
 #include <glm/gtc/type_ptr.hpp>
 #include "Camera.h"
-#include <Accelerate/Accelerate.h>
+#include <vector>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -22,13 +23,21 @@ float cameraHeight = 600.0f;
 Camera camera(cameraWidth, cameraHeight, cameraPos);
 int waterPlaneIndexCount;
 GLuint oceanHeightTexture;
-GLuint fftTexture;
-GLuint ifftTexture;
-GLuint fourierHeightTexture;
+
 GLuint quadVAO, quadVBO, quadEBO;
 
-
+GLuint advectShaderProgram;
+GLuint jacobiShaderProgram;
+GLuint applyForceShaderProgram;
+GLuint divergenceShaderProgram;
+GLuint gradientSubtractShaderProgram;
+GLuint velocityTexture;
+GLuint pressureTexture;
+GLuint jacobiTexture1;
+GLuint jacobiTexture2;
 GLuint framebuffer;
+
+float timeStep = 0.01;
 
 
 // Light info.
@@ -199,7 +208,7 @@ void drawWater() {
     glUniform4f(lightAmbientLoc, lightAmbient[0], lightAmbient[1], lightAmbient[2], lightAmbient[3]);
     glUniform4f(lightDiffuseLoc, lightDiffuse[0], lightDiffuse[1], lightDiffuse[2], lightDiffuse[3]);
     glUniform4f(lightSpecularLoc, lightSpecular[0], lightSpecular[1], lightSpecular[2], lightSpecular[3]);
-    glUniform1i(textureLoc, 0);
+    glUniform1i(textureLoc, 1);
     glUniform1f(sizeLoc, size);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1i(envMapLoc, 4);
@@ -373,6 +382,379 @@ void drawSkybox() {
     glBindVertexArray(0);
 }
 
+void advect(GLuint texture) {
+    glUseProgram(advectShaderProgram);
+
+    // Generate texture to store intermediate results
+    std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
+    GLuint outputTexture;
+    glGenTextures(1, &outputTexture);
+    glBindTexture(GL_TEXTURE_2D, outputTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, zeroData.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Bind the velocity and dye textures
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, velocityTexture);
+
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, outputTexture);
+
+
+    // Set the uniform variables
+    GLuint timestepLoc = glGetUniformLocation(advectShaderProgram, "timestep");
+    GLuint rdxLoc = glGetUniformLocation(advectShaderProgram, "rdx");
+
+    GLuint velocityTextureLoc = glGetUniformLocation(advectShaderProgram, "velocityTexture");
+    GLuint advectedTextureLoc = glGetUniformLocation(advectShaderProgram, "advectedTexture");
+    GLuint gridSizeLoc = glGetUniformLocation(advectShaderProgram, "gridSize");
+
+    glUniform1f(timestepLoc, timeStep);
+    glUniform1f(rdxLoc, 1.0 / gridSize);
+    glUniform1i(velocityTextureLoc, 1);
+    glUniform1f(gridSizeLoc, gridSize);
+
+    if (texture == oceanHeightTexture) {
+        glUniform1i(advectedTextureLoc, 0);
+    } else if (texture == velocityTexture) {
+        glUniform1i(advectedTextureLoc, 1);
+    }
+
+
+    // Render texture to framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
+
+    glViewport(0, 0, gridSize, gridSize);
+//    glClear(GL_COLOR_BUFFER_BIT);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+
+    if (texture == oceanHeightTexture) {
+        glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, gridSize, gridSize);
+    } else if (texture == velocityTexture) {
+        glBindTexture(GL_TEXTURE_2D, velocityTexture);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, gridSize, gridSize);
+    }
+
+
+    // Unbind the framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+//    glDeleteFramebuffers(1, &tempframebuffer);
+    glDeleteTextures(1, &outputTexture);
+}
+
+void jacobi(GLuint outputTexture, GLuint xLoc) {
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glViewport(0,0,gridSize, gridSize);
+
+    // 1st iteration
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, jacobiTexture1, 0);
+
+    if (outputTexture == velocityTexture) {
+        glUniform1i(xLoc, 1);
+    } else if (outputTexture == pressureTexture) {
+        glUniform1i(xLoc, 2);
+    }
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    int NO_OF_ITERATIONS = 50;
+    GLuint currTexture;
+
+    for (int i = 0; i < NO_OF_ITERATIONS; i++) {
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+        // Alternate between two textures to read & write
+        if (i % 2 == 0) { // Multiple of 2 - input: jacobiTexture1, output: jacobiTexture2
+            currTexture = jacobiTexture2;
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, currTexture);
+            // Bind output texture to framebuffer
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, currTexture, 0);
+            // Input texture
+            glUniform1i(xLoc, 3);
+        } else {// input: jacobiTexture2, output: jacobiTexture1
+            currTexture = jacobiTexture1;
+            // Bind output texture to framebuffer
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, currTexture);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, currTexture, 0);
+            // Input texture
+            glUniform1i(xLoc, 4);
+        }
+
+        glBindVertexArray(quadVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+
+    }
+
+    // Copy final texture from framebuffer to outputTexture
+    glBindTexture(GL_TEXTURE_2D, outputTexture);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, gridSize, gridSize);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void diffuse(GLuint texture) {
+    glUseProgram(jacobiShaderProgram);
+
+    // Uniform variables
+    GLuint alphaLoc = glGetUniformLocation(jacobiShaderProgram, "alpha");
+    GLuint rBetaLoc = glGetUniformLocation(jacobiShaderProgram, "rBeta");
+    GLuint xLoc = glGetUniformLocation(jacobiShaderProgram, "x");
+    GLuint bLoc = glGetUniformLocation(jacobiShaderProgram, "b");
+    GLuint gridSizeLoc = glGetUniformLocation(jacobiShaderProgram, "gridSize");
+    GLuint scaleLoc = glGetUniformLocation(jacobiShaderProgram, "scale");
+
+    float dx = 1.0 / gridSize;
+    float nu = 0.0002;
+    float alpha = (dx * dx) / (nu * timeStep);
+
+    glUniform1f(alphaLoc, alpha);
+    glUniform1f(rBetaLoc, 1.0f / (4.0f + alpha));
+    glUniform1f(gridSizeLoc, gridSize);
+    glUniform1f(scaleLoc, -1); // velocity
+
+    if (texture == velocityTexture) {
+        glUniform1i(bLoc, 1);
+        jacobi(velocityTexture, xLoc);
+    }
+
+}
+
+void getMouseNDC(GLFWwindow* window, glm::vec2& mouseNDC) {
+    // Window coordinates
+    double mouseX, mouseY;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+    mouseNDC.x = (2.0f * static_cast<float>(mouseX) / windowWidth) - 1.0f;
+    mouseNDC.y = 1.0f - (2.0f * static_cast<float>(mouseY) / windowHeight);
+//    std::cout << "Mouse: " << mouseX << ", " << mouseY  << std::endl;
+}
+
+
+glm::vec3 computePlaneIntersection(const glm::vec2& mouseNDC) {
+    glm::mat4 invVP = glm::inverse(projection * view);
+
+    // Create ray in NDC space (clip space)
+    glm::vec4 nearPoint = invVP * glm::vec4(mouseNDC, -1.0f, 1.0f);
+    glm::vec4 farPoint = invVP * glm::vec4(mouseNDC, 1.0f, 1.0f);
+
+    // Convert to world coordinates (perspective divide)
+    nearPoint /= nearPoint.w;
+    farPoint /= farPoint.w;
+
+    glm::vec3 rayOrigin = glm::vec3(nearPoint);
+    glm::vec3 rayDirection = glm::normalize(glm::vec3(farPoint) - rayOrigin);
+
+    // Debug: Print ray data
+//    std::cout << "Ray Origin: " << rayOrigin.x << ", " << rayOrigin.y << ", " << rayOrigin.z << std::endl;
+//    std::cout << "Ray Direction: " << rayDirection.x << ", " << rayDirection.y << ", " << rayDirection.z << std::endl;
+
+    // Check if ray is parallel to the plane
+    if (glm::abs(rayDirection.y) < 1e-6f) {
+//        std::cout << "Ray is parallel to the plane!" << std::endl;
+        return glm::vec3(-1, -1, -1);
+    }
+
+    // Compute intersection t for the plane at y = yPlaneHeight
+    float yPlaneHeight = 0.0;
+    float t = (yPlaneHeight - rayOrigin.y) / rayDirection.y;
+
+    // If t < 0, intersection is behind the camera
+    if (t < 0) {
+//        std::cout << "Intersection is behind the camera!" << std::endl;
+        return glm::vec3(-1, -1, -1);
+    }
+
+    // Compute intersection point
+    glm::vec3 intersection = rayOrigin + t * rayDirection;
+
+    // Debug: Print intersection data
+//    std::cout << "Intersection: " << intersection.x << ", " << intersection.y << ", " << intersection.z << std::endl;
+
+    // Check if the intersection is within the bounded region
+    float halfSize = size / 2.0f;
+    if (intersection.x < -halfSize || intersection.x > halfSize ||
+        intersection.z < -halfSize || intersection.z > halfSize) {
+//        std::cout << "Intersection is out of bounds!" << std::endl;
+        return glm::vec3(-1, -1, -1); // Outside the boundary
+    }
+
+    return intersection;
+}
+
+
+
+void applyForce(GLFWwindow *window) {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    glViewport(0, 0, width, height);
+
+    glm::vec2 mouseNDC;
+    getMouseNDC(window, mouseNDC);
+
+    glm::vec3 intersection = computePlaneIntersection(mouseNDC);
+
+    if (intersection == glm::vec3(-1, -1, -1)) return;
+
+    intersection = (intersection + size / 2) / size;
+
+    std::cout << "Intersection: " << intersection.x << ", " << intersection.y << ", " << intersection.z << std::endl;
+
+    glUseProgram(applyForceShaderProgram);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, velocityTexture);
+
+    GLuint forcePosLoc = glGetUniformLocation(applyForceShaderProgram, "forcePos");
+    GLuint forceDirLoc = glGetUniformLocation(applyForceShaderProgram, "forceDir");
+    GLuint forceRadiusLoc = glGetUniformLocation(applyForceShaderProgram, "forceRadius");
+    GLuint forceStrengthLoc = glGetUniformLocation(applyForceShaderProgram, "forceStrength");
+    GLuint velocityTextureLoc = glGetUniformLocation(applyForceShaderProgram, "velocityTexture");
+    GLuint gridSizeLoc = glGetUniformLocation(applyForceShaderProgram, "gridSize");
+    GLuint sizeLoc = glGetUniformLocation(applyForceShaderProgram, "size");
+
+    glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
+    glUniform2f(forceDirLoc, 1.0f, 0.0f);
+    glUniform1f(forceRadiusLoc, 0.1f);
+    glUniform1f(forceStrengthLoc, 1.0f);
+    glUniform1i(velocityTextureLoc, 1);
+    glUniform1i(gridSizeLoc, gridSize);
+    glUniform1f(sizeLoc, size);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, velocityTexture, 0);
+
+    glViewport(0, 0, gridSize, gridSize);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+}
+
+void divergence(GLuint divergenceTexture) {
+    glUseProgram(divergenceShaderProgram);
+
+//    glActiveTexture(GL_TEXTURE1);
+//    glBindTexture(GL_TEXTURE_2D, velocityTexture);
+
+    GLuint wLoc = glGetUniformLocation(divergenceShaderProgram, "w");
+    GLuint halfrdxLoc = glGetUniformLocation(divergenceShaderProgram, "halfrdx");
+    GLuint gridSizeLoc = glGetUniformLocation(divergenceShaderProgram, "gridSize");
+
+    glUniform1i(wLoc, 1);
+    glUniform1f(halfrdxLoc, 1.0 / (2.0  * gridSize));
+    glUniform1i(gridSizeLoc, gridSize);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, divergenceTexture, 0);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void subtractGradient() {
+    GLuint outputTexture;
+    glGenTextures(1, &outputTexture);
+    glBindTexture(GL_TEXTURE_2D, outputTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glUseProgram(gradientSubtractShaderProgram);
+
+    GLuint pLoc = glGetUniformLocation(gradientSubtractShaderProgram, "p");
+    GLuint wLoc = glGetUniformLocation(gradientSubtractShaderProgram, "w");
+    GLuint halfrdxLoc = glGetUniformLocation(gradientSubtractShaderProgram, "halfrdx");
+    GLuint gridSizeLoc = glGetUniformLocation(gradientSubtractShaderProgram, "gridSize");
+
+    glUniform1i(pLoc, 2);
+    glUniform1i(wLoc, 1);
+    glUniform1f(halfrdxLoc, 1.0 / (2.0  * gridSize));
+    glUniform1i(gridSizeLoc, gridSize);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glBindTexture(GL_TEXTURE_2D, velocityTexture);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, gridSize, gridSize);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void project() {
+    // Divergence of intermediate velocity field w
+    GLuint divergenceTexture;
+    glGenTextures(1, &divergenceTexture);
+    glBindTexture(GL_TEXTURE_2D, divergenceTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, divergenceTexture);
+
+    divergence(divergenceTexture);
+
+    glUseProgram(jacobiShaderProgram);
+
+    GLuint alphaLoc = glGetUniformLocation(jacobiShaderProgram, "alpha");
+    GLuint rBetaLoc = glGetUniformLocation(jacobiShaderProgram, "rBeta");
+    GLuint xLoc = glGetUniformLocation(jacobiShaderProgram, "x");
+    GLuint bLoc = glGetUniformLocation(jacobiShaderProgram, "b");
+    GLuint gridSizeLoc = glGetUniformLocation(jacobiShaderProgram, "gridSize");
+    GLuint scaleLoc = glGetUniformLocation(jacobiShaderProgram, "scale");
+
+    float dx = gridSize;
+    float alpha = -(dx * dx);
+    float rBeta = 1.0 /4.0;
+
+    glUniform1f(alphaLoc, alpha);
+    glUniform1f(rBetaLoc, rBeta);
+    glUniform1i(bLoc, 5); // divergence of w
+    glUniform1f(gridSizeLoc, gridSize);
+    glUniform1f(scaleLoc, 1); //pressure
+
+    // Solve for pressure field
+    jacobi(pressureTexture, xLoc);
+
+    subtractGradient();
+
+}
+
 
 void cleanup() {
     // Clean up resources
@@ -419,6 +801,11 @@ int main() {
     waterShader = createShaderProgram("../shader.vert", "../shader.frag");
 //    waterShader = createShaderProgram("../fullScreenQuad.vert", "../temp.frag"); // texture
     skyboxShader = createShaderProgram("../skyBox.vert", "../skyBox.frag");
+    advectShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../advect.frag");
+    jacobiShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../jacobi.frag");
+    applyForceShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../applyForce.frag");
+    divergenceShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../divergence.frag");
+    gradientSubtractShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../subtractGradient.frag");
 
 
     // Create quadVAO, quadVBO, quadEBO
@@ -439,6 +826,9 @@ int main() {
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
+
     // Textures
     glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, &oceanHeightTexture);
@@ -448,30 +838,45 @@ int main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     glActiveTexture(GL_TEXTURE1);
-    glGenTextures(1, &fftTexture);
-    glBindTexture(GL_TEXTURE_2D, fftTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, gridSize, gridSize, 0, GL_RG, GL_FLOAT, nullptr);
+    glGenTextures(1, &velocityTexture);
+    glBindTexture(GL_TEXTURE_2D, velocityTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, gridSize, gridSize, 0, GL_RG, GL_FLOAT, zeroData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glActiveTexture(GL_TEXTURE2);
-    glGenTextures(1, &ifftTexture);
-    glBindTexture(GL_TEXTURE_2D, ifftTexture);
+    glGenTextures(1, &pressureTexture);
+    glBindTexture(GL_TEXTURE_2D, pressureTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, gridSize, gridSize, 0, GL_RG, GL_FLOAT, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glActiveTexture(GL_TEXTURE3);
-    glGenTextures(1, &fourierHeightTexture);
-    glBindTexture(GL_TEXTURE_2D, fourierHeightTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, gridSize, gridSize, 0, GL_RG, GL_FLOAT, nullptr);
+    glGenTextures(1, &jacobiTexture1);
+    glBindTexture(GL_TEXTURE_2D, jacobiTexture1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glActiveTexture(GL_TEXTURE4);
+    glGenTextures(1, &jacobiTexture2);
+    glBindTexture(GL_TEXTURE_2D, jacobiTexture2);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     // Create framebuffer
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fftTexture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, velocityTexture, 0);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         std::cerr << "Framebuffer is not complete!" << std::endl;
@@ -496,17 +901,25 @@ int main() {
         view = camera.getViewMatrix();
         projection = camera.getProjMatrix(70.0f, 0.1f, 100.0f);
 
-        glDisable(GL_DEPTH_TEST);
-        drawSkybox();
-        glEnable(GL_DEPTH_TEST);
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+            applyForce(window);
+        }
 
+        advect(velocityTexture);
+        diffuse(velocityTexture);
+        project();
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         glViewport(0, 0, width, height);
 
 
-        // 2️⃣ Enable blending for water
+        glDisable(GL_DEPTH_TEST);
+        drawSkybox();
+        glEnable(GL_DEPTH_TEST);
+
+
+        // Enable blending for water
 //        glEnable(GL_BLEND);
 //        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 //        glDepthMask(GL_FALSE);  // Disable writing to the depth buffer
