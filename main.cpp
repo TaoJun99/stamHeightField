@@ -37,6 +37,10 @@ GLuint jacobiTexture1;
 GLuint jacobiTexture2;
 GLuint framebuffer;
 
+GLuint advectHeightShaderProgram;
+GLuint displaceHeightShaderProgram;
+GLuint applyGravityShaderProgram;
+
 float timeStep = 0.01;
 
 
@@ -208,7 +212,7 @@ void drawWater() {
     glUniform4f(lightAmbientLoc, lightAmbient[0], lightAmbient[1], lightAmbient[2], lightAmbient[3]);
     glUniform4f(lightDiffuseLoc, lightDiffuse[0], lightDiffuse[1], lightDiffuse[2], lightDiffuse[3]);
     glUniform4f(lightSpecularLoc, lightSpecular[0], lightSpecular[1], lightSpecular[2], lightSpecular[3]);
-    glUniform1i(textureLoc, 1);
+    glUniform1i(textureLoc, 0);
     glUniform1f(sizeLoc, size);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1i(envMapLoc, 4);
@@ -652,13 +656,48 @@ void applyForce(GLFWwindow *window) {
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+
+    // Change height
+    glUseProgram(displaceHeightShaderProgram);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
+
+    forcePosLoc = glGetUniformLocation(displaceHeightShaderProgram, "forcePos");
+    forceDirLoc = glGetUniformLocation(displaceHeightShaderProgram, "forceDir");
+    forceRadiusLoc = glGetUniformLocation(displaceHeightShaderProgram, "forceRadius");
+    forceStrengthLoc = glGetUniformLocation(displaceHeightShaderProgram, "forceStrength");
+
+    gridSizeLoc = glGetUniformLocation(displaceHeightShaderProgram, "gridSize");
+    sizeLoc = glGetUniformLocation(displaceHeightShaderProgram, "size");
+    GLuint heightTextureLoc = glGetUniformLocation(displaceHeightShaderProgram, "heightTexture");
+
+    glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
+    glUniform2f(forceDirLoc, 1.0f, 0.0f);
+    glUniform1f(forceRadiusLoc, 0.1f);
+    glUniform1f(forceStrengthLoc, 1.0f);
+    glUniform1i(heightTextureLoc, 0);
+    glUniform1i(gridSizeLoc, gridSize);
+    glUniform1f(sizeLoc, size);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+
+    glViewport(0, 0, gridSize, gridSize);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 }
 
 void divergence(GLuint divergenceTexture) {
     glUseProgram(divergenceShaderProgram);
 
-//    glActiveTexture(GL_TEXTURE1);
-//    glBindTexture(GL_TEXTURE_2D, velocityTexture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, velocityTexture);
 
     GLuint wLoc = glGetUniformLocation(divergenceShaderProgram, "w");
     GLuint halfrdxLoc = glGetUniformLocation(divergenceShaderProgram, "halfrdx");
@@ -755,6 +794,42 @@ void project() {
 
 }
 
+void advectHeight() {
+    glUseProgram(advectHeightShaderProgram);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, velocityTexture);
+
+    GLuint velocityTextureLoc = glGetUniformLocation(advectHeightShaderProgram, "velocityTexture");
+    GLuint heightFieldLoc = glGetUniformLocation(advectHeightShaderProgram, "heightField");
+    GLuint halfrdxLoc = glGetUniformLocation(advectHeightShaderProgram, "halfrdx");
+    GLuint gridSizeLoc = glGetUniformLocation(advectHeightShaderProgram, "gridSize");
+    GLuint timeStepLoc = glGetUniformLocation(advectHeightShaderProgram, "timeStep");
+
+    glUniform1i(velocityTextureLoc, 1);
+    glUniform1i(heightFieldLoc, 0);
+    glUniform1f(halfrdxLoc, 1.0 / (2.0  * gridSize));
+    glUniform1i(gridSizeLoc, gridSize);
+    glUniform1f(timeStepLoc, timeStep);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+
+    glViewport(0, 0, gridSize, gridSize);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void applyGravity() {
+
+}
+
 
 void cleanup() {
     // Clean up resources
@@ -806,7 +881,8 @@ int main() {
     applyForceShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../applyForce.frag");
     divergenceShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../divergence.frag");
     gradientSubtractShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../subtractGradient.frag");
-
+    advectHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../advectHeight.frag");
+    displaceHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../displaceHeight.frag");
 
     // Create quadVAO, quadVBO, quadEBO
     glGenVertexArrays(1, &quadVAO);
@@ -833,7 +909,7 @@ int main() {
     glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, &oceanHeightTexture);
     glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, gridSize, gridSize, 0, GL_RG, GL_FLOAT, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, gridSize, gridSize, 0, GL_RG, GL_FLOAT, zeroData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -843,8 +919,8 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, gridSize, gridSize, 0, GL_RG, GL_FLOAT, zeroData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glActiveTexture(GL_TEXTURE2);
     glGenTextures(1, &pressureTexture);
@@ -908,6 +984,8 @@ int main() {
         advect(velocityTexture);
         diffuse(velocityTexture);
         project();
+
+        advectHeight();
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
