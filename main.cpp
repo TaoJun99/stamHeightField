@@ -48,11 +48,13 @@ float timeStep = 0.01;
 const GLfloat lightAmbient[] = { 0.1f, 0.2f, 0.3f, 1.0f };
 const GLfloat lightDiffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat lightPosition[4] = {0.0f, 100.0f, 0.0f, 1.0f }; // Given in eye space
+const GLfloat lightPosition[4] = {-10.0f, 10.0f, -10.0f, 0.0f }; // Given in eye space
 
 // Grid size
 const int gridSize = 1024; // Number of segments in each direction
 const float size = 100.0f;  // Size of the plane
+
+std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
 
 float quadVertices[] = {
         -1.0f, -1.0f,
@@ -390,7 +392,7 @@ void advect(GLuint texture) {
     glUseProgram(advectShaderProgram);
 
     // Generate texture to store intermediate results
-    std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
+
     GLuint outputTexture;
     glGenTextures(1, &outputTexture);
     glBindTexture(GL_TEXTURE_2D, outputTexture);
@@ -526,7 +528,7 @@ void diffuse(GLuint texture) {
     GLuint scaleLoc = glGetUniformLocation(jacobiShaderProgram, "scale");
 
     float dx = 1.0 / gridSize;
-    float nu = 0.0002;
+    float nu = 0.0000002;
     float alpha = (dx * dx) / (nu * timeStep);
 
     glUniform1f(alphaLoc, alpha);
@@ -640,7 +642,7 @@ void applyForce(GLFWwindow *window) {
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
     glUniform2f(forceDirLoc, 1.0f, 0.0f);
     glUniform1f(forceRadiusLoc, 0.1f);
-    glUniform1f(forceStrengthLoc, 1.0f);
+    glUniform1f(forceStrengthLoc, 0.5f);
     glUniform1i(velocityTextureLoc, 1);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1f(sizeLoc, size);
@@ -674,8 +676,8 @@ void applyForce(GLFWwindow *window) {
 
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
     glUniform2f(forceDirLoc, 1.0f, 0.0f);
-    glUniform1f(forceRadiusLoc, 0.1f);
-    glUniform1f(forceStrengthLoc, 1.0f);
+    glUniform1f(forceRadiusLoc, 0.05f);
+    glUniform1f(forceStrengthLoc, 0.5f);
     glUniform1i(heightTextureLoc, 0);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1f(sizeLoc, size);
@@ -827,7 +829,34 @@ void advectHeight() {
 }
 
 void applyGravity() {
+    glUseProgram(applyGravityShaderProgram);
 
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
+
+    GLuint heightFieldLoc = glGetUniformLocation(applyGravityShaderProgram, "heightField");
+    GLuint velocityFieldLoc = glGetUniformLocation(applyGravityShaderProgram, "velocityField");
+    GLuint gridSizeLoc = glGetUniformLocation(applyGravityShaderProgram, "gridSize");
+    GLuint halfrdxLoc = glGetUniformLocation(applyGravityShaderProgram, "halfrdx");
+    GLuint timeStepLoc = glGetUniformLocation(applyGravityShaderProgram, "timeStep");
+
+    glUniform1i(heightFieldLoc, 0);
+    glUniform1i(velocityFieldLoc, 1);
+    glUniform1i(gridSizeLoc, gridSize);
+    glUniform1f(halfrdxLoc, 1.0 / (2.0  * gridSize));
+    glUniform1f(timeStepLoc, timeStep);
+
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+
+    glViewport(0, 0, gridSize, gridSize);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 
@@ -883,6 +912,7 @@ int main() {
     gradientSubtractShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../subtractGradient.frag");
     advectHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../advectHeight.frag");
     displaceHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../displaceHeight.frag");
+    applyGravityShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../applyGravity.frag");
 
     // Create quadVAO, quadVBO, quadEBO
     glGenVertexArrays(1, &quadVAO);
@@ -903,7 +933,21 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
+//    std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
+//    std::vector<GLfloat> colorData(gridSize * gridSize * 4, 0.0f);
+
+//    for (int k = 0; k < gridSize; ++k) {
+//        for (int j = 0; j < gridSize; ++j) {
+//            for (int i = 0; i < gridSize; ++i) {
+//                int index = k * gridSize * gridSize + j * gridSize + i;
+//                // You can modify the values here if needed
+//                colorData[index * 4 + 0] = 0.0f; // Set R to 1.0f, for example
+//                colorData[index * 4 + 1] = 0.5f; // G component
+//                colorData[index * 4 + 2] = 0.5f; // B component
+//                colorData[index * 4 + 3] = 1.0f; // A component
+//            }
+//        }
+//    }
 
     // Textures
     glActiveTexture(GL_TEXTURE0);
@@ -912,6 +956,9 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, gridSize, gridSize, 0, GL_RG, GL_FLOAT, zeroData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
 
     glActiveTexture(GL_TEXTURE1);
     glGenTextures(1, &velocityTexture);
@@ -986,6 +1033,7 @@ int main() {
         project();
 
         advectHeight();
+        applyGravity();
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
@@ -998,14 +1046,14 @@ int main() {
 
 
         // Enable blending for water
-//        glEnable(GL_BLEND);
-//        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-//        glDepthMask(GL_FALSE);  // Disable writing to the depth buffer
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);  // Disable writing to the depth buffer
 
         drawWater();
 
-//        glDepthMask(GL_TRUE);  // Re-enable depth writing
-//        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);  // Re-enable depth writing
+        glDisable(GL_BLEND);
 
 
         // Swap front and back buffers

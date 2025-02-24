@@ -9,7 +9,7 @@ out vec4 fragColor;
 
 bool isBoundary(ivec2 gridCellIndex) {
     return gridCellIndex.x == 0 || gridCellIndex.x == gridSize - 1 ||
-    gridCellIndex.x == 0 || gridCellIndex.x == gridSize - 1;
+    gridCellIndex.y == 0 || gridCellIndex.y == gridSize - 1;
 }
 
 void main() {

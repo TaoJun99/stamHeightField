@@ -17,7 +17,8 @@ bool isBoundary(ivec2 gridCellIndex) {
 void main() {
     ivec2 gridCellIndex = ivec2(floor(texCoords * (gridSize - 1)));  // Convert normalized to integer coordinates
 
-    float h = texelFetch(heightField, gridCellIndex, 0).x;
+//    float h = texelFetch(heightField, gridCellIndex, 0).x;
+    float h = texture(heightField, texCoords).x;
 
     // Fetch neighboring texels
     vec4 vL = texelFetch(velocityTexture, gridCellIndex - ivec2(1, 0), 0);  // Left
@@ -28,14 +29,14 @@ void main() {
     float div_hv = h * halfrdx * ((vR.x - vL.x) + (vT.y - vB.y));
 
     if (!isBoundary(gridCellIndex)) {
-        fragColor = vec4(h - 10 * timeStep * div_hv, 0.0, 0.0, 0.0);
-//        vec2 newX = texCoords - timeStep * halfrdx * 2 * texture(velocityTexture, texCoords).xy;
+//        fragColor = vec4(h - 10 * timeStep * div_hv, 0.0, 0.0, 0.0);
+        vec2 newX = texCoords - 20 * timeStep * 2 * halfrdx * texture(velocityTexture, texCoords).xy;
+        // Reflect the coordinates back if out of bounds
 //        newX = vec2(newX.x < 0.0 ? -newX.x : (newX.x > 1.0 ? 2.0 - newX.x : newX.x),
 //        newX.y < 0.0 ? -newX.y : (newX.y > 1.0 ? 2.0 - newX.y : newX.y)
 //        );
-//        fragColor = texture(heightField, newX);
 
-
+        fragColor = texture(heightField, newX);
     } else {
         fragColor = vec4(h, 0.0, 0.0, 0.0);  // Preserve height at boundary
     }
