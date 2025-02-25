@@ -14,15 +14,20 @@ out vec3 ecNormal;
 out vec3 ecPosition;
 
 vec3 computeSurfaceNormal() {
-    ivec2 texel = ivec2(floor(texCoords * float(gridSize - 1)));
+    ivec2 texel = ivec2(round(texCoords * float(gridSize - 1)));
 
     float delta_x = 1.0 / gridSize;
 
     // Get the height values at the current texel and its neighbors (using central difference)
-    float hL = texelFetch(inputTexture, texel - ivec2(1, 0), 0).x; // Left neighbor
-    float hR = texelFetch(inputTexture, texel + ivec2(1, 0), 0).x; // Right neighbor
-    float hD = texelFetch(inputTexture, texel - ivec2(0, 1), 0).x; // Down neighbor
-    float hU = texelFetch(inputTexture, texel + ivec2(0, 1), 0).x; // Up neighbor
+//    float hL = texelFetch(inputTexture, texel - ivec2(1, 0), 0).x; // Left neighbor
+//    float hR = texelFetch(inputTexture, texel + ivec2(1, 0), 0).x; // Right neighbor
+//    float hD = texelFetch(inputTexture, texel - ivec2(0, 1), 0).x; // Down neighbor
+//    float hU = texelFetch(inputTexture, texel + ivec2(0, 1), 0).x; // Up neighbor
+
+    float hL = texture(inputTexture, texCoords + vec2(-1.0 / gridSize, 0)).x;
+    float hR = texture(inputTexture, texCoords + vec2( 1.0 / gridSize, 0)).x;
+    float hD = texture(inputTexture, texCoords + vec2(0, -1.0 / gridSize)).x;
+    float hU = texture(inputTexture, texCoords + vec2(0,  1.0 / gridSize)).x;
 
     // Compute the partial derivatives using central difference
     float dHdx = (hR - hL) / (2.0 * delta_x); // Gradient in the x direction

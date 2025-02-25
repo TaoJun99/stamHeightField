@@ -33,12 +33,18 @@ void main() {
     } else if (gridCellIndex.y == gridSize - 1) {
         fragColor = -texelFetch(w, gridCellIndex - ivec2(0, 1), 0);
     } else {
-        float pC = texelFetch(p, gridCellIndex, 0).x;
+//        float pC = texelFetch(p, gridCellIndex, 0).x;
+//
+//        float pL = texelFetch(p, gridCellIndex - ivec2(1, 0), 0).x;  // Left
+//        float pR = texelFetch(p, gridCellIndex + ivec2(1, 0), 0).x;  // Right
+//        float pB = texelFetch(p, gridCellIndex - ivec2(0, 1), 0).x;  // Bottom
+//        float pT = texelFetch(p, gridCellIndex + ivec2(0, 1), 0).x;  // Top
 
-        float pL = texelFetch(p, gridCellIndex - ivec2(1, 0), 0).x;  // Left
-        float pR = texelFetch(p, gridCellIndex + ivec2(1, 0), 0).x;  // Right
-        float pB = texelFetch(p, gridCellIndex - ivec2(0, 1), 0).x;  // Bottom
-        float pT = texelFetch(p, gridCellIndex + ivec2(0, 1), 0).x;  // Top
+        float pC = texture(p, texCoords).x;
+        float pL = texture(p, texCoords + vec2(-1.0 / gridSize, 0)).x;
+        float pR = texture(p, texCoords + vec2( 1.0 / gridSize, 0)).x;
+        float pB = texture(p, texCoords + vec2(0, -1.0 / gridSize)).x;
+        float pT = texture(p, texCoords + vec2(0,  1.0 / gridSize)).x;
 
         if (isBoundary(gridCellIndex - ivec2(1, 0))) {
             pL = pC;

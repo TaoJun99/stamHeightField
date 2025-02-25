@@ -13,7 +13,7 @@ out vec4 fragColor;
 
 bool isBoundary(ivec2 gridCellIndex) {
    return gridCellIndex.x == 0 || gridCellIndex.x == gridSize - 1 ||
-   gridCellIndex.x == 0 || gridCellIndex.x == gridSize - 1;
+   gridCellIndex.y == 0 || gridCellIndex.y == gridSize - 1;
 }
 
 
@@ -38,13 +38,19 @@ void main() {
     } else if (gridCellIndex.y == gridSize - 1) {
         fragColor = scale * texelFetch(x, gridCellIndex - ivec2(0, 1), 0);
     } else {
-        vec4 xC = texelFetch(x, gridCellIndex, 0); // Center of texel
+//        vec4 xC = texelFetch(x, gridCellIndex, 0); // Center of texel
 
         // Fetch neighboring texels
-        vec4 xL = texelFetch(x, gridCellIndex - ivec2(1, 0), 0);  // Left
-        vec4 xR = texelFetch(x, gridCellIndex + ivec2(1, 0), 0);  // Right
-        vec4 xB = texelFetch(x, gridCellIndex - ivec2(0, 1), 0);  // Bottom
-        vec4 xT = texelFetch(x, gridCellIndex + ivec2(0, 1), 0);  // Top
+//        vec4 xL = texelFetch(x, gridCellIndex - ivec2(1, 0), 0);  // Left
+//        vec4 xR = texelFetch(x, gridCellIndex + ivec2(1, 0), 0);  // Right
+//        vec4 xB = texelFetch(x, gridCellIndex - ivec2(0, 1), 0);  // Bottom
+//        vec4 xT = texelFetch(x, gridCellIndex + ivec2(0, 1), 0);  // Top
+
+        vec4 xC = texture(x, texCoords);
+        vec4 xL = texture(x, texCoords + vec2(-1.0 / gridSize, 0));
+        vec4 xR = texture(x, texCoords + vec2( 1.0 / gridSize, 0));
+        vec4 xB = texture(x, texCoords + vec2(0, -1.0 / gridSize));
+        vec4 xT = texture(x, texCoords + vec2(0,  1.0 / gridSize));
 
         vec4 bC = texelFetch(b, gridCellIndex, 0);
 

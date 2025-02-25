@@ -26,8 +26,8 @@ const float n = 100.0;                        // Sharp reflections
 
 void main() {
 //    fragColor = vec4(0.0, 0.5, 0.5, 1.0);
-//    fragColor = vec4(texture(inputTexture, texCoords).x, 0.0, 0.0, 1.0);
-//    fragColor = texture(inputTexture, texCoords);
+    fragColor = vec4(texture(inputTexture, texCoords).x, 0.0, 0.0, 1.0);
+    fragColor = texture(inputTexture, texCoords);
 
     // Get view vector
     vec3 viewVec = normalize(ecPosition);
@@ -78,8 +78,8 @@ void main() {
 
 
     // env map w blinn phong
-        fragColor = mix(fresnel * envColor, k_s * specularIntensity + (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N), 0.3);
-//        fragColor = blinnPhong;
+//        fragColor = mix(fresnel * envColor, k_s * specularIntensity + (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N), 0.7);
+        fragColor = blinnPhong;
 //        fragColor = envColor;
     // env map w light scatter
 //    fragColor = mix(fresnel * envColor , fresnel * k_s * LightSpecular * specularIntensity + scatterAmbient, 1.0);
@@ -87,5 +87,5 @@ void main() {
 
 
 //    fragColor = phongColor;
-    fragColor.a = 0.8;
+    fragColor.a = 1.0;
 }
