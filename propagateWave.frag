@@ -12,33 +12,34 @@ out vec4 fragColor;
 
 
 void main() {
-    ivec2 gridCellIndex = ivec2(round(texCoords * (gridSize)));  // Convert normalized to integer coordinates
+    ivec2 gridCellIndex = ivec2(floor(texCoords * (gridSize - 1)));  // Convert normalized to integer coordinates
 
-    // Compute Laplacian of the height field
-//    float h = texelFetch(heightField, gridCellIndex, 0).x;
-    float hC = texture(heightField, texCoords).x;
+    float newHeight;
+    if (gridCellIndex.x == 0 || gridCellIndex.x == gridSize - 1) {
+        newHeight = -texture(heightField, texCoords + vec2(-1.0 / gridSize, 0)).x;  // Reflect horizontally
+    } else if (gridCellIndex.y == 0 || gridCellIndex.y == gridSize - 1) {
+        newHeight = -texture(heightField, texCoords + vec2(0, -1.0 / gridSize)).x;  // Reflect vertically
+    } else {
 
-    float hL = texelFetch(heightField, gridCellIndex - ivec2(1, 0), 0).x;// Left
-    float hR = texelFetch(heightField, gridCellIndex + ivec2(1, 0), 0).x;// Right
-    float hB = texelFetch(heightField, gridCellIndex - ivec2(0, 1), 0).x;// Bottom
-    float hT = texelFetch(heightField, gridCellIndex + ivec2(0, 1), 0).x;// Top
+        // Compute Laplacian of the height field
+        float hC = texture(heightField, texCoords).x;
 
-//    float hL = texture(heightField, texCoords + vec2(-1.0 / gridSize, 0)).x;
-//    float hR = texture(heightField, texCoords + vec2( 1.0 / gridSize, 0)).x;
-//    float hB = texture(heightField, texCoords + vec2(0, -1.0 / gridSize)).x;
-//    float hT = texture(heightField, texCoords + vec2(0,  1.0 / gridSize)).x;
+        float hL = texture(heightField, texCoords + vec2(-1.0 / gridSize, 0)).x;
+        float hR = texture(heightField, texCoords + vec2(1.0 / gridSize, 0)).x;
+        float hB = texture(heightField, texCoords + vec2(0, -1.0 / gridSize)).x;
+        float hT = texture(heightField, texCoords + vec2(0, 1.0 / gridSize)).x;
 
-    float laplacianH = (hL + hR + hB + hT - 4.0 * hC) / (gridSize * gridSize);
+        float laplacianH = (hL + hR + hB + hT - 4.0 * hC) * gridSize * gridSize;
 
-    float c = sqrt(9.81 * 1.0);
-    float hPrev = texture(prevHeightField, texCoords).x;
+        float c = sqrt(9.81 * 0.7);
+        float hPrev = texture(prevHeightField, texCoords).x;
 
-    // Wave propagation step
-    float newHeight = ((2.0 * hC - hPrev)/ 2) + (c * c * timeStep * timeStep / (gridSize * gridSize)) * laplacianH;
+        // Wave propagation step
+        newHeight = (2 * hC - hPrev) + (c * c * timeStep * timeStep) * laplacianH;
 
-    // Apply damping (optional)
-    newHeight *= 0.98; // Slight damping to prevent infinite oscillations
-
+        // Apply damping (optional)
+        newHeight *= 0.98;// Slight damping to prevent infinite oscillations
+    }
 
     fragColor = vec4(newHeight, 0.0, 0.0, 1.0);
 

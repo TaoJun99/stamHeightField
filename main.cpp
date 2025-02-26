@@ -43,7 +43,7 @@ GLuint displaceHeightShaderProgram;
 GLuint applyGravityShaderProgram;
 GLuint propagateWaveShaderProgram;
 
-float timeStep = 0.01;
+float timeStep = 0.001;
 
 
 // Light info.
@@ -53,7 +53,7 @@ const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightPosition[4] = {-10.0f, 10.0f, -10.0f, 0.0f }; // Given in eye space
 
 // Grid size
-const int gridSize = 1024; // Number of segments in each direction
+const int gridSize = 256; // Number of segments in each direction
 const float size = 100.0f;  // Size of the plane
 
 std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
@@ -654,7 +654,7 @@ void applyForce(GLFWwindow *window) {
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
     glUniform2f(forceDirLoc, 1.0f, 0.0f);
     glUniform1f(forceRadiusLoc, 0.1f);
-    glUniform1f(forceStrengthLoc, 50.0f);
+    glUniform1f(forceStrengthLoc, 1.0f);
     glUniform1i(velocityTextureLoc, 1);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1f(sizeLoc, size);
@@ -964,40 +964,69 @@ void propagateWave() {
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    GLuint srcFBO, dstFBO;
-    glGenFramebuffers(1, &srcFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, srcFBO);
+//    GLuint srcFBO, dstFBO;
+//    glGenFramebuffers(1, &srcFBO);
+//    glBindFramebuffer(GL_FRAMEBUFFER, srcFBO);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+//
+//    glGenFramebuffers(1, &dstFBO);
+//    glBindFramebuffer(GL_FRAMEBUFFER, dstFBO);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, prevHeightTexture, 0);
+//
+//    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFBO);
+//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO);
+//    glBlitFramebuffer(
+//            0, 0, gridSize, gridSize,  // Source rectangle
+//            0, 0, gridSize, gridSize,  // Destination rectangle
+//            GL_COLOR_BUFFER_BIT,  // What to copy
+//            GL_LINEAR        // Filtering mode (GL_NEAREST or GL_LINEAR)
+//    );
+//
+//    glBindFramebuffer(GL_FRAMEBUFFER, srcFBO);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
+//
+//    glBindFramebuffer(GL_FRAMEBUFFER, dstFBO);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+//
+//    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFBO);
+//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO);
+//    glBlitFramebuffer(
+//            0, 0, gridSize, gridSize,  // Source rectangle
+//            0, 0, gridSize, gridSize,  // Destination rectangle
+//            GL_COLOR_BUFFER_BIT,  // What to copy
+//            GL_LINEAR        // Filtering mode (GL_NEAREST or GL_LINEAR)
+//    );
+
+
+    // 2. Copy the current height (oceanHeightTexture) into prevHeightTexture
+//    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, prevHeightTexture, 0);
+//
+//    glBlitFramebuffer(0, 0, gridSize, gridSize, 0, 0, gridSize, gridSize, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+//
+//    // 3. Copy outputTexture (new height) into oceanHeightTexture
+//    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
+//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+//
+//    glBlitFramebuffer(0, 0, gridSize, gridSize, 0, 0, gridSize, gridSize, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+//
+//
+
+
+// 2. Copy oceanHeightTexture (current height) to prevHeightTexture
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+    glBindTexture(GL_TEXTURE_2D, prevHeightTexture);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, gridSize, gridSize);
 
-    glGenFramebuffers(1, &dstFBO);
-    glBindFramebuffer(GL_FRAMEBUFFER, dstFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, prevHeightTexture, 0);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFBO);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO);
-    glBlitFramebuffer(
-            0, 0, gridSize, gridSize,  // Source rectangle
-            0, 0, gridSize, gridSize,  // Destination rectangle
-            GL_COLOR_BUFFER_BIT,  // What to copy
-            GL_LINEAR        // Filtering mode (GL_NEAREST or GL_LINEAR)
-    );
-
-    glBindFramebuffer(GL_FRAMEBUFFER, srcFBO);
+    // 3. Copy outputTexture (new height) to oceanHeightTexture
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, dstFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFBO);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO);
-    glBlitFramebuffer(
-            0, 0, gridSize, gridSize,  // Source rectangle
-            0, 0, gridSize, gridSize,  // Destination rectangle
-            GL_COLOR_BUFFER_BIT,  // What to copy
-            GL_LINEAR        // Filtering mode (GL_NEAREST or GL_LINEAR)
-    );
-
-
+    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, gridSize, gridSize);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -1176,7 +1205,7 @@ int main() {
 
         camera.Inputs(window);
         view = camera.getViewMatrix();
-        projection = camera.getProjMatrix(70.0f, 0.1f, 100.0f);
+        projection = camera.getProjMatrix(70.0f, 0.1f, 1000.0f);
 
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
             applyForce(window);

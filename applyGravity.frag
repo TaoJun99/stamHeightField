@@ -25,7 +25,7 @@ void main() {
         float h = texture(heightField, texCoords).x;
 
         if (h > 0) {
-            fragColor = vec4(h - 0.01, 0.0, 0.0, 0.0);
+            fragColor = vec4(h, 0.0, 0.0, 0.0);
         } else if (h < -0.1){
             fragColor = vec4(h, 0.0, 0.0, 0.0);
         } else {
