@@ -61,32 +61,21 @@ void main() {
             h4 = h;
         }
 
-        // Compute fluxes (h * v)
-        float fluxR = hR * vR.x;
-        float fluxL = hL * vL.x;
-        float fluxT = hT * vT.y;
-        float fluxB = hB * vB.y;
-
-        // Compute divergence of flux
-        float divFlux = 2 * halfrdx * ((fluxR - fluxL)  + (fluxT - fluxB));
-
 
         float dh_dt = - 2 * halfrdx * ((h1 * v.x - h2 * vL.x) + (h3 * v.y - h4 * vB.y));
 //        fragColor = vec4(h + timeStep * dh_dt, 0.0, 0.0, 0.0);
-//        fragColor = vec4(h - timeStep * divFlux, 0.0, 0.0, 0.0);
 
-        vec2 grad_h = vec2(dFdx(h), dFdy(h));
+        vec2 grad_h = vec2((hR - hL) * halfrdx, (hT - hB) * halfrdx);
+
         vec2 v = texture(velocityTexture, texCoords).xy;
 
-        float dvx_dx = dFdx(v.x); // Derivative of velocity in x direction (partial v_x / partial x)
-        float dvy_dy = dFdy(v.y); // Derivative of velocity in y direction (partial v_y / partial y)
-        float div_v = dvx_dx + dvy_dy;
+        float dv_dx = (vR.x - vL.x) * halfrdx;
+        float dv_dy = (vT.y - vB.y) * halfrdx;
 
-//        fragColor = vec4(h - timeStep * (dot(v, grad_h) + h * div_v), 0.0, 0.0, 0.0);
+        float div_v = dv_dx + dv_dy;
 
-        vec2 first = dFdx(h * v);
-        float second = dFdy(h * v.y);
-        fragColor = vec4(h + timeStep * (first.x + first.y), 0.0, 0.0, 0.0);
+        fragColor = vec4(h - timeStep * (dot(v, grad_h) + h * div_v), 0.0, 0.0, 0.0);
+
 
 
     } else {
