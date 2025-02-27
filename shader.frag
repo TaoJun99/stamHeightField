@@ -87,5 +87,5 @@ void main() {
 
 
 //    fragColor = phongColor;
-    fragColor.a = 1.0;
+    fragColor.a = 0.7;
 }

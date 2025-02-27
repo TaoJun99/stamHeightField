@@ -15,11 +15,11 @@ void main() {
     ivec2 gridCellIndex = ivec2(floor(texCoords * (gridSize - 1)));  // Convert normalized to integer coordinates
 
     float newHeight;
-    if (gridCellIndex.x == 0 || gridCellIndex.x == gridSize - 1) {
-        newHeight = -texture(heightField, texCoords + vec2(-1.0 / gridSize, 0)).x;  // Reflect horizontally
-    } else if (gridCellIndex.y == 0 || gridCellIndex.y == gridSize - 1) {
-        newHeight = -texture(heightField, texCoords + vec2(0, -1.0 / gridSize)).x;  // Reflect vertically
-    } else {
+//    if (gridCellIndex.x == 0 || gridCellIndex.x == gridSize - 1) {
+//        newHeight = -texture(heightField, texCoords + vec2(-1.0 / gridSize, 0)).x;  // Reflect horizontally
+//    } else if (gridCellIndex.y == 0 || gridCellIndex.y == gridSize - 1) {
+//        newHeight = -texture(heightField, texCoords + vec2(0, -1.0 / gridSize)).x;  // Reflect vertically
+//    } else {
 
         // Compute Laplacian of the height field
         float hC = texture(heightField, texCoords).x;
@@ -39,7 +39,7 @@ void main() {
 
         // Apply damping (optional)
         newHeight *= 0.98;// Slight damping to prevent infinite oscillations
-    }
+//    }
 
     fragColor = vec4(newHeight, 0.0, 0.0, 1.0);
 
