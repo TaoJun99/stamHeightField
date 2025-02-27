@@ -42,9 +42,10 @@ GLuint advectHeightShaderProgram;
 GLuint displaceHeightShaderProgram;
 GLuint applyGravityShaderProgram;
 GLuint propagateWaveShaderProgram;
+GLuint velocityIntegrationShaderProgram;
+GLuint initHeightShaderProgram;
 
 float timeStep = 0.001;
-
 
 // Light info.
 const GLfloat lightAmbient[] = { 0.1f, 0.2f, 0.3f, 1.0f };
@@ -134,7 +135,7 @@ void generatePlane(float** vertices, unsigned int** indices, int* indexCount) {
     for (int z = 0; z <= gridSize; ++z) {
         for (int x = 0; x <= gridSize; ++x) {
             (*vertices)[(z * (gridSize + 1) + x) * 3 + 0] = (x / (float)gridSize) * size - size / 2; // x
-            (*vertices)[(z * (gridSize + 1) + x) * 3 + 1] = 0.0f; // y (initially flat)
+            (*vertices)[(z * (gridSize + 1) + x) * 3 + 1] = 5.0f; // y (initially flat)
             (*vertices)[(z * (gridSize + 1) + x) * 3 + 2] = (z / (float)gridSize) * size - size / 2; // z
         }
     }
@@ -187,6 +188,25 @@ void setupWater() {
 
     delete[] vertices;
     delete[] indices;
+
+
+    glUseProgram(initHeightShaderProgram);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+
+    glViewport(0, 0, gridSize, gridSize);
+//    glClear(GL_COLOR_BUFFER_BIT);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 }
 
 void drawWater() {
@@ -409,8 +429,6 @@ void advect(GLuint texture) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     // Bind the velocity and dye textures
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, velocityTexture);
@@ -424,19 +442,13 @@ void advect(GLuint texture) {
     GLuint rdxLoc = glGetUniformLocation(advectShaderProgram, "rdx");
 
     GLuint velocityTextureLoc = glGetUniformLocation(advectShaderProgram, "velocityTexture");
-    GLuint advectedTextureLoc = glGetUniformLocation(advectShaderProgram, "advectedTexture");
+
     GLuint gridSizeLoc = glGetUniformLocation(advectShaderProgram, "gridSize");
 
     glUniform1f(timestepLoc, timeStep);
     glUniform1f(rdxLoc, 1.0 / gridSize);
     glUniform1i(velocityTextureLoc, 1);
     glUniform1f(gridSizeLoc, gridSize);
-
-    if (texture == oceanHeightTexture) {
-        glUniform1i(advectedTextureLoc, 0);
-    } else if (texture == velocityTexture) {
-        glUniform1i(advectedTextureLoc, 1);
-    }
 
 
     // Render texture to framebuffer
@@ -594,7 +606,7 @@ glm::vec3 computePlaneIntersection(const glm::vec2& mouseNDC) {
     }
 
     // Compute intersection t for the plane at y = yPlaneHeight
-    float yPlaneHeight = 0.0;
+    float yPlaneHeight = 5.0;
     float t = (yPlaneHeight - rayOrigin.y) / rayDirection.y;
 
     // If t < 0, intersection is behind the camera
@@ -642,6 +654,8 @@ void applyForce(GLFWwindow *window) {
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, velocityTexture);
+    glActiveTexture(GL_TEXTURE6);
+    glBindTexture(GL_TEXTURE_2D, prevHeightTexture);
 
     GLuint forcePosLoc = glGetUniformLocation(applyForceShaderProgram, "forcePos");
     GLuint forceDirLoc = glGetUniformLocation(applyForceShaderProgram, "forceDir");
@@ -653,7 +667,7 @@ void applyForce(GLFWwindow *window) {
 
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
     glUniform2f(forceDirLoc, 1.0f, 0.0f);
-    glUniform1f(forceRadiusLoc, 0.1f);
+    glUniform1f(forceRadiusLoc, 0.02f);
     glUniform1f(forceStrengthLoc, 1.0f);
     glUniform1i(velocityTextureLoc, 1);
     glUniform1i(gridSizeLoc, gridSize);
@@ -668,34 +682,8 @@ void applyForce(GLFWwindow *window) {
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-
-    // Change height
-    glUseProgram(displaceHeightShaderProgram);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
-
-    forcePosLoc = glGetUniformLocation(displaceHeightShaderProgram, "forcePos");
-    forceDirLoc = glGetUniformLocation(displaceHeightShaderProgram, "forceDir");
-    forceRadiusLoc = glGetUniformLocation(displaceHeightShaderProgram, "forceRadius");
-    forceStrengthLoc = glGetUniformLocation(displaceHeightShaderProgram, "forceStrength");
-
-    gridSizeLoc = glGetUniformLocation(displaceHeightShaderProgram, "gridSize");
-    sizeLoc = glGetUniformLocation(displaceHeightShaderProgram, "size");
-    GLuint heightTextureLoc = glGetUniformLocation(displaceHeightShaderProgram, "heightTexture");
-
-    glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
-    glUniform2f(forceDirLoc, 1.0f, 0.0f);
-    glUniform1f(forceRadiusLoc, 0.1f);
-    glUniform1f(forceStrengthLoc, 0.3f);
-    glUniform1i(heightTextureLoc, 0);
-    glUniform1i(gridSizeLoc, gridSize);
-    glUniform1f(sizeLoc, size);
-
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, prevHeightTexture, 0);
 
     glViewport(0, 0, gridSize, gridSize);
 
@@ -964,59 +952,6 @@ void propagateWave() {
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-//    GLuint srcFBO, dstFBO;
-//    glGenFramebuffers(1, &srcFBO);
-//    glBindFramebuffer(GL_FRAMEBUFFER, srcFBO);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
-//
-//    glGenFramebuffers(1, &dstFBO);
-//    glBindFramebuffer(GL_FRAMEBUFFER, dstFBO);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, prevHeightTexture, 0);
-//
-//    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFBO);
-//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO);
-//    glBlitFramebuffer(
-//            0, 0, gridSize, gridSize,  // Source rectangle
-//            0, 0, gridSize, gridSize,  // Destination rectangle
-//            GL_COLOR_BUFFER_BIT,  // What to copy
-//            GL_LINEAR        // Filtering mode (GL_NEAREST or GL_LINEAR)
-//    );
-//
-//    glBindFramebuffer(GL_FRAMEBUFFER, srcFBO);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
-//
-//    glBindFramebuffer(GL_FRAMEBUFFER, dstFBO);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
-//
-//    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFBO);
-//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO);
-//    glBlitFramebuffer(
-//            0, 0, gridSize, gridSize,  // Source rectangle
-//            0, 0, gridSize, gridSize,  // Destination rectangle
-//            GL_COLOR_BUFFER_BIT,  // What to copy
-//            GL_LINEAR        // Filtering mode (GL_NEAREST or GL_LINEAR)
-//    );
-
-
-    // 2. Copy the current height (oceanHeightTexture) into prevHeightTexture
-//    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
-//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, prevHeightTexture, 0);
-//
-//    glBlitFramebuffer(0, 0, gridSize, gridSize, 0, 0, gridSize, gridSize, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-//
-//    // 3. Copy outputTexture (new height) into oceanHeightTexture
-//    glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
-//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
-//
-//    glBlitFramebuffer(0, 0, gridSize, gridSize, 0, 0, gridSize, gridSize, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-//
-//
-
-
 // 2. Copy oceanHeightTexture (current height) to prevHeightTexture
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
@@ -1031,6 +966,42 @@ void propagateWave() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glDeleteTextures(1, &outputTexture);
+}
+
+void integrateVelocity() {
+    glUseProgram(velocityIntegrationShaderProgram);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, velocityTexture);
+    glActiveTexture(GL_TEXTURE6);
+    glBindTexture(GL_TEXTURE_2D, prevHeightTexture);
+
+
+    GLuint velocityTextureLoc = glGetUniformLocation(velocityIntegrationShaderProgram, "velocityTexture");
+    GLuint heightFieldLoc = glGetUniformLocation(velocityIntegrationShaderProgram, "heightField");
+    GLuint externalForceTextureLoc = glGetUniformLocation(velocityIntegrationShaderProgram, "externalForceTexture");
+    GLuint halfrdxLoc = glGetUniformLocation(velocityIntegrationShaderProgram, "halfrdx");
+    GLuint timeStepLoc = glGetUniformLocation(velocityIntegrationShaderProgram, "timeStep");
+
+    glUniform1i(velocityTextureLoc, 1);
+    glUniform1i(heightFieldLoc, 0);
+    glUniform1i(externalForceTextureLoc, 6);
+    glUniform1f(halfrdxLoc, 1.0 / (2.0 * gridSize));
+    glUniform1f(timeStepLoc, timeStep);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, velocityTexture, 0);
+
+    glViewport(0, 0, gridSize, gridSize);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void cleanup() {
@@ -1087,6 +1058,8 @@ int main() {
     displaceHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../displaceHeight.frag");
     applyGravityShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../applyGravity.frag");
     propagateWaveShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../propagateWave.frag");
+    velocityIntegrationShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../velocityIntegration.frag");
+    initHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../initHeight.frag");
 
     // Create quadVAO, quadVBO, quadEBO
     glGenVertexArrays(1, &quadVAO);
@@ -1109,16 +1082,16 @@ int main() {
 
 //    std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
 //    std::vector<GLfloat> colorData(gridSize * gridSize * 4, 0.0f);
-
+//
 //    for (int k = 0; k < gridSize; ++k) {
 //        for (int j = 0; j < gridSize; ++j) {
 //            for (int i = 0; i < gridSize; ++i) {
 //                int index = k * gridSize * gridSize + j * gridSize + i;
 //                // You can modify the values here if needed
-//                colorData[index * 4 + 0] = 0.0f; // Set R to 1.0f, for example
-//                colorData[index * 4 + 1] = 0.5f; // G component
-//                colorData[index * 4 + 2] = 0.5f; // B component
-//                colorData[index * 4 + 3] = 1.0f; // A component
+//                colorData[index * 4 + 0] = 2.0f; // Set R to 1.0f, for example
+//                colorData[index * 4 + 1] = 0.0f; // G component
+//                colorData[index * 4 + 2] = 0.0f; // B component
+//                colorData[index * 4 + 3] = 0.0f; // A component
 //            }
 //        }
 //    }
@@ -1130,8 +1103,8 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, gridSize, gridSize, 0, GL_RG, GL_FLOAT, zeroData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 
     glActiveTexture(GL_TEXTURE1);
@@ -1212,12 +1185,13 @@ int main() {
         }
 
         advect(velocityTexture);
-        diffuse(velocityTexture);
-        project();
+//        diffuse(velocityTexture);
+//        project();
 
         advectHeight();
-//        applyGravity();
-        propagateWave();
+//        propagateWave();
+
+//        integrateVelocity();
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);

@@ -20,18 +20,18 @@ void main() {
         if (gridCellIndex.y == 0 || gridCellIndex.y == gridSize - 1) { // Corner
             fragColor = vec4(0.0, 0.0, 0.0, 0.0);
         } else {
-            fragColor = -texelFetch(advectedTexture,gridCellIndex + ivec2(1, 0), 0);
+            fragColor = -texelFetch(velocityTexture,gridCellIndex + ivec2(1, 0), 0);
         }
     } else if (gridCellIndex.x == gridSize - 1) {
         if (gridCellIndex.y == 0 || gridCellIndex.y == gridSize - 1) { // Corner
             fragColor = vec4(0.0, 0.0, 0.0, 0.0);
         } else {
-            fragColor = -texelFetch(advectedTexture,gridCellIndex - ivec2(1, 0), 0);
+            fragColor = -texelFetch(velocityTexture,gridCellIndex - ivec2(1, 0), 0);
         }
     } else if (gridCellIndex.y == 0) {
-        fragColor = -texelFetch(advectedTexture,gridCellIndex + ivec2(0, 1), 0);
+        fragColor = -texelFetch(velocityTexture,gridCellIndex + ivec2(0, 1), 0);
     } else if (gridCellIndex.y == gridSize - 1) {
-        fragColor = -texelFetch(advectedTexture, gridCellIndex - ivec2(0, 1), 0);
+        fragColor = -texelFetch(velocityTexture, gridCellIndex - ivec2(0, 1), 0);
     } else { // Inner cells
         vec2 newX = texCoords - timestep * rdx * texture(velocityTexture, texCoords).xy;
         // Reflect the coordinates back if out of bounds
@@ -39,7 +39,7 @@ void main() {
                     newX.y < 0.0 ? -newX.y : (newX.y > 1.0 ? 2.0 - newX.y : newX.y)
         );
 
-        vec4 advectedValue = texture(advectedTexture, newX);
+        vec4 advectedValue = texture(velocityTexture, newX);
 
         fragColor = advectedValue;
     }

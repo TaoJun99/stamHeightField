@@ -24,10 +24,13 @@ void main() {
 
         // Apply force within the radius
         if (distance < forceRadius) {
+            vec2 direction = normalize(texCoords - forcePos.xz);
+//            if (distance < 0.0001) {
+//                direction = vec2(0.0, 0.0);  // Set a zero direction at the center
+//            }
             float influence = exp(-distance * distance / (2.0 * forceRadius * forceRadius));
             vec2 currentVelocity = texture(velocityTexture, texCoords).xy;
-//            vec2 newVelocity = currentVelocity + influence * forceDir * forceStrength;
-            vec2 newVelocity = currentVelocity + influence * normalize(texCoords - forcePos.xz) * forceStrength; // radial direction
+            vec2 newVelocity = currentVelocity + influence * direction * forceStrength; // radial direction
 
             fragColor = vec4(newVelocity, 0.0, 1.0);
         } else {
