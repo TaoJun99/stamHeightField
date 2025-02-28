@@ -48,8 +48,8 @@ void main() {
 //        float v_x = v.x - ((g * (hR - h) * 2 * halfrdx) * timeStep);
 //        float v_y = v.y - ((g * (hT - h) * 2 * halfrdx) * timeStep);
 //
-        float v_x = v.x - (g * (hR - hL) * 2 * halfrdx) * timeStep;
-        float v_y = v.y - (g * (hT - hB) * 2 * halfrdx) * timeStep;
+        float v_x = v.x - (g * (hR - hL) * 2 * halfrdx) * 50 * timeStep;
+        float v_y = v.y - (g * (hT - hB) * 2 * halfrdx) * 50 * timeStep;
 
 
 //        float h_x = 0.01 * dFdx(h);

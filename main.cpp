@@ -51,13 +51,15 @@ float timeStep = 0.5;
 const GLfloat lightAmbient[] = { 0.1f, 0.2f, 0.3f, 1.0f };
 const GLfloat lightDiffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat lightPosition[4] = {-10.0f, 10.0f, -10.0f, 0.0f }; // Given in eye space
+const GLfloat lightPosition[4] = {0.0f, 10.0f, 0.0f, 0.0f }; // Given in eye space
 
 // Grid size
-const int gridSize = 256; // Number of segments in each direction
-const float size = 100.0f;  // Size of the plane
+const int gridSize = 200; // Number of segments in each direction
+const float size = 50.0f;  // Size of the plane
 
 std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
+
+float yPlaneHeight = 10.0;
 
 float quadVertices[] = {
         -1.0f, -1.0f,
@@ -135,7 +137,7 @@ void generatePlane(float** vertices, unsigned int** indices, int* indexCount) {
     for (int z = 0; z <= gridSize; ++z) {
         for (int x = 0; x <= gridSize; ++x) {
             (*vertices)[(z * (gridSize + 1) + x) * 3 + 0] = (x / (float)gridSize) * size - size / 2; // x
-            (*vertices)[(z * (gridSize + 1) + x) * 3 + 1] = 5.0f; // y (initially flat)
+            (*vertices)[(z * (gridSize + 1) + x) * 3 + 1] = yPlaneHeight; // y (initially flat)
             (*vertices)[(z * (gridSize + 1) + x) * 3 + 2] = (z / (float)gridSize) * size - size / 2; // z
         }
     }
@@ -606,7 +608,6 @@ glm::vec3 computePlaneIntersection(const glm::vec2& mouseNDC) {
     }
 
     // Compute intersection t for the plane at y = yPlaneHeight
-    float yPlaneHeight = 5.0;
     float t = (yPlaneHeight - rayOrigin.y) / rayDirection.y;
 
     // If t < 0, intersection is behind the camera
@@ -619,7 +620,7 @@ glm::vec3 computePlaneIntersection(const glm::vec2& mouseNDC) {
     glm::vec3 intersection = rayOrigin + t * rayDirection;
 
     // Debug: Print intersection data
-    std::cout << "Intersection: " << intersection.x << ", " << intersection.y << ", " << intersection.z << std::endl;
+//    std::cout << "Intersection: " << intersection.x << ", " << intersection.y << ", " << intersection.z << std::endl;
 
     // Check if the intersection is within the bounded region
     float halfSize = size / 2.0f;
@@ -667,8 +668,8 @@ void applyForce(GLFWwindow *window) {
 
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
     glUniform2f(forceDirLoc, 1.0f, 0.0f);
-    glUniform1f(forceRadiusLoc, 0.01f);
-    glUniform1f(forceStrengthLoc, 5.0f);
+    glUniform1f(forceRadiusLoc, 0.5 / gridSize);
+    glUniform1f(forceStrengthLoc, 1.0f);
     glUniform1i(velocityTextureLoc, 1);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1f(sizeLoc, size);
@@ -1181,14 +1182,17 @@ int main() {
             applyForce(window);
         }
 
+        advectHeight();
+        integrateVelocity();
+
         advect(velocityTexture);
 //        diffuse(velocityTexture);
 //        project();
 
-        advectHeight();
+
 //        propagateWave();
 
-        integrateVelocity();
+
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
