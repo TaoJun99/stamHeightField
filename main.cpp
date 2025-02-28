@@ -45,7 +45,7 @@ GLuint propagateWaveShaderProgram;
 GLuint velocityIntegrationShaderProgram;
 GLuint initHeightShaderProgram;
 
-float timeStep = 0.01;
+float timeStep = 0.5;
 
 // Light info.
 const GLfloat lightAmbient[] = { 0.1f, 0.2f, 0.3f, 1.0f };
@@ -54,8 +54,8 @@ const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightPosition[4] = {-10.0f, 10.0f, -10.0f, 0.0f }; // Given in eye space
 
 // Grid size
-const int gridSize = 64; // Number of segments in each direction
-const float size = 200.0f;  // Size of the plane
+const int gridSize = 256; // Number of segments in each direction
+const float size = 100.0f;  // Size of the plane
 
 std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
 
@@ -135,7 +135,7 @@ void generatePlane(float** vertices, unsigned int** indices, int* indexCount) {
     for (int z = 0; z <= gridSize; ++z) {
         for (int x = 0; x <= gridSize; ++x) {
             (*vertices)[(z * (gridSize + 1) + x) * 3 + 0] = (x / (float)gridSize) * size - size / 2; // x
-            (*vertices)[(z * (gridSize + 1) + x) * 3 + 1] = 0.0f; // y (initially flat)
+            (*vertices)[(z * (gridSize + 1) + x) * 3 + 1] = 5.0f; // y (initially flat)
             (*vertices)[(z * (gridSize + 1) + x) * 3 + 2] = (z / (float)gridSize) * size - size / 2; // z
         }
     }
@@ -667,8 +667,8 @@ void applyForce(GLFWwindow *window) {
 
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
     glUniform2f(forceDirLoc, 1.0f, 0.0f);
-    glUniform1f(forceRadiusLoc, 0.1f);
-    glUniform1f(forceStrengthLoc, 10.0f);
+    glUniform1f(forceRadiusLoc, 0.01f);
+    glUniform1f(forceStrengthLoc, 5.0f);
     glUniform1i(velocityTextureLoc, 1);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1f(sizeLoc, size);
@@ -981,12 +981,14 @@ void integrateVelocity() {
     GLuint heightFieldLoc = glGetUniformLocation(velocityIntegrationShaderProgram, "heightField");
     GLuint halfrdxLoc = glGetUniformLocation(velocityIntegrationShaderProgram, "halfrdx");
     GLuint timeStepLoc = glGetUniformLocation(velocityIntegrationShaderProgram, "timeStep");
+    GLuint gridSizeLoc = glGetUniformLocation(velocityIntegrationShaderProgram, "gridSize");
 
     glUniform1i(velocityTextureLoc, 1);
     glUniform1i(heightFieldLoc, 0);
 
     glUniform1f(halfrdxLoc, 1.0 / (2.0 * gridSize));
     glUniform1f(timeStepLoc, timeStep);
+    glUniform1i(gridSizeLoc, gridSize);
 
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, velocityTexture, 0);

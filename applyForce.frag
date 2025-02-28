@@ -23,7 +23,7 @@ void main() {
         float distance = length(texCoords - forcePos.xz);
 
         // Apply force within the radius
-        if (distance < forceRadius) {
+        if (distance < forceRadius - 1e-6) {
             vec2 direction = normalize(texCoords - forcePos.xz);
 //            if (distance < 0.0001) {
 //                direction = vec2(0.0, 0.0);  // Set a zero direction at the center
