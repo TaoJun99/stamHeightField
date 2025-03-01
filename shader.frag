@@ -78,7 +78,7 @@ void main() {
 
 
     // env map w blinn phong
-//        fragColor = mix(fresnel * envColor, k_s * specularIntensity + (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N), 0.7);
+//        fragColor = mix(fresnel * envColor, k_s * specularIntensity + (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N), 0.3);
         fragColor = blinnPhong;
 //        fragColor = envColor;
     // env map w light scatter

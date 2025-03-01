@@ -29,15 +29,6 @@ void main() {
     float hB = texture(heightField, texCoords + 0.5 * vec2(0, -1.0 / gridSize)).x;// Bottom
     float hT = texture(heightField, texCoords + 0.5 * vec2(0,  1.0 / gridSize)).x;// Top
 
-//    float hL = texture(heightField, texCoords + vec2( -1.0 / gridSize, 0)).x;// Left
-//    float hR = texture(heightField, texCoords + vec2( 1.0 / gridSize, 0)).x;// Right
-//    float hB = texture(heightField, texCoords + vec2(0, -1.0 / gridSize)).x;// Bottom
-//    float hT = texture(heightField, texCoords + vec2(0,  1.0 / gridSize)).x;// Top
-
-//    float hL = texelFetch(heightField, gridCellIndex - ivec2(1, 0), 0).x;// Left
-//    float hR = texelFetch(heightField, gridCellIndex + ivec2(1, 0), 0).x;// Right
-//    float hB = texelFetch(heightField, gridCellIndex - ivec2(0, 1), 0).x;// Bottom
-//    float hT = texelFetch(heightField, gridCellIndex + ivec2(0, 1), 0).x;// Top
 
     float g = 9.81;
 
@@ -45,21 +36,10 @@ void main() {
 
 
     if (!isBoundary(texCoords)) {
-//        float v_x = v.x - ((g * (hR - h) * 2 * halfrdx) * timeStep);
-//        float v_y = v.y - ((g * (hT - h) * 2 * halfrdx) * timeStep);
-//
-        float v_x = v.x - (g * (hR - hL) * 2 * halfrdx) * 50 * timeStep;
-        float v_y = v.y - (g * (hT - hB) * 2 * halfrdx) * 50 * timeStep;
-
-
-//        float h_x = 0.01 * dFdx(h);
-//        float h_y = 0.01 * dFdy(h);
-
-//        float v_x = v.x - (g * h_x) * timeStep;
-//        float v_y = v.y - (g * h_y) * timeStep;
+        float v_x = v.x - (g * (hR - hL) * 2 * halfrdx) * 80 * timeStep;
+        float v_y = v.y - (g * (hT - hB) * 2 * halfrdx) * 80 * timeStep;
 
         fragColor = vec4(v_x, v_y, 0.0, 0.0);
-//        fragColor *= 0.95;
     } else {
         fragColor = v;
     }

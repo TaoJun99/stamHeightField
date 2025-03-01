@@ -30,12 +30,6 @@ void main() {
     vec4 vBL = texture(velocityTexture, texCoords + vec2(-1.0 / gridSize,-1.0 / gridSize));
     vec4 vBR = texture(velocityTexture, texCoords + vec2(-1.0 / gridSize, 1.0 / gridSize));
 
-
-//    vec4 vL = texture(velocityTexture, texCoords + 0.5 * vec2(-1.0 / gridSize, 0));
-//    vec4 vR = texture(velocityTexture, texCoords + 0.5 * vec2(1.0 / gridSize, 0));
-//    vec4 vB = texture(velocityTexture, texCoords + 0.5 * vec2(0, -1.0 / gridSize));
-//    vec4 vT = texture(velocityTexture, texCoords + 0.5 * vec2(0,  1.0 / gridSize));
-
     float hL = texture(heightField, texCoords + vec2( -1.0 / gridSize, 0)).x;// Left
     float hR = texture(heightField, texCoords + vec2(1.0 / gridSize, 0)).x;// Right
     float hB = texture(heightField, texCoords + vec2(0,-1.0 / gridSize)).x;// Bottom
@@ -81,39 +75,16 @@ void main() {
 
 
         vec2 grad_h = vec2((hR - hL) * halfrdx, (hT - hB) * halfrdx);
-//        vec2 v = texture(velocityTexture, texCoords).xy;
-
         float dv_dx = (vR.x - vL.x) * halfrdx;
         float dv_dy = (vT.y - vB.y) * halfrdx;
 
         float div_v = dv_dx + dv_dy;
-
-
-//        float grad_h_x = (hR - h) * halfrdx;
-//        float grad_h_y = (hT - hB) * halfrdx;
-//
-//        float grad_h_diag1 = (hTR - hBL) * halfrdx;
-//        float grad_h_diag2 = (hTL - hBR) * halfrdx;
-//
-//        vec2 grad_h = vec2((grad_h_x + grad_h_diag1 + grad_h_diag2) * 0.25,
-//                           (grad_h_y + grad_h_diag1 + grad_h_diag2) * 0.25);
-//
-//
-//
-//        float div_v_x = (vR.x - vL.x) * halfrdx;
-//        float div_v_y = (vT.y - vB.y) * halfrdx;
-//        // Diagonal divergences (in both diagonal directions)
-//        float div_v_diag1 = (vTR.x - vBL.x + vTR.y - vBL.y) * halfrdx;
-//        float div_v_diag2 = (vTL.x - vBR.x + vTL.y - vBR.y) * halfrdx;
-//        // Averaging the divergences
-//        float div_v = (div_v_x + div_v_y + div_v_diag1 + div_v_diag2) * 0.25;
-
-
         fragColor = vec4(h - timeStep * (dot(v.xy, grad_h) + h * div_v), 0.0, 0.0, 0.0);
 
 
+
     } else {
-        fragColor = vec4(5.0, 0.0, 0.0, 0.0);  // Preserve height at boundary
+        fragColor = vec4(10.0, 0.0, 0.0, 0.0);  // Preserve height at boundary
     }
 
 }

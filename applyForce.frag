@@ -24,20 +24,23 @@ void main() {
 
         // Apply force within the radius
         if (distance < forceRadius) {
-            vec2 direction = normalize(texCoords - forcePos.xz);
-            if (direction == vec2(0.0)) {
-                direction = vec2(1.0, 0.0);
-            }
-
-            float influence = exp(-distance * distance / (2.0 * forceRadius * forceRadius));
-            vec2 currentVelocity = texture(velocityTexture, texCoords).xy;
-            vec2 newVelocity = currentVelocity + influence * direction * forceStrength; // radial direction
-
-//            float normalizedDistance = distance / forceRadius;
-//            float influence = smoothstep(1.0, 0.0, normalizedDistance);
+//            vec2 direction = normalize(texCoords - forcePos.xz);
 //
+//
+//            float influence = exp(-distance * distance / (2.0 * forceRadius * forceRadius));
 //            vec2 currentVelocity = texture(velocityTexture, texCoords).xy;
-//            vec2 newVelocity = mix(currentVelocity, currentVelocity + forceStrength * direction, influence);
+//            vec2 newVelocity = currentVelocity + influence * direction * forceStrength; // radial direction
+//
+//
+//            fragColor = vec4(newVelocity, 0.0, 1.0);
+
+            vec2 direction = normalize(texCoords - forcePos.xz + vec2(0.01)); // Avoid instability
+            float sigma = 0.5 * forceRadius;
+            float influence = exp(-distance * distance / (2.0 * sigma * sigma));
+
+            vec2 currentVelocity = textureLod(velocityTexture, texCoords, 0.0).xy;
+            vec2 newVelocity = mix(currentVelocity, currentVelocity + influence * direction * forceStrength, 0.1); // Smooth blending
+
             fragColor = vec4(newVelocity, 0.0, 1.0);
         } else {
             fragColor = texture(velocityTexture, texCoords);

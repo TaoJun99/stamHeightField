@@ -44,6 +44,7 @@ GLuint applyGravityShaderProgram;
 GLuint propagateWaveShaderProgram;
 GLuint velocityIntegrationShaderProgram;
 GLuint initHeightShaderProgram;
+GLuint smoothHeightShaderProgram;
 
 float timeStep = 0.5;
 
@@ -54,8 +55,8 @@ const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightPosition[4] = {0.0f, 10.0f, 0.0f, 0.0f }; // Given in eye space
 
 // Grid size
-const int gridSize = 200; // Number of segments in each direction
-const float size = 50.0f;  // Size of the plane
+const int gridSize = 1000; // Number of segments in each direction
+const float size = 20.0f;  // Size of the plane
 
 std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
 
@@ -668,8 +669,8 @@ void applyForce(GLFWwindow *window) {
 
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
     glUniform2f(forceDirLoc, 1.0f, 0.0f);
-    glUniform1f(forceRadiusLoc, 0.5 / gridSize);
-    glUniform1f(forceStrengthLoc, 1.0f);
+    glUniform1f(forceRadiusLoc, 0.01);
+    glUniform1f(forceStrengthLoc, 5.0f);
     glUniform1i(velocityTextureLoc, 1);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1f(sizeLoc, size);
@@ -969,6 +970,33 @@ void propagateWave() {
     glDeleteTextures(1, &outputTexture);
 }
 
+void smoothHeight() {
+    glUseProgram(smoothHeightShaderProgram);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
+
+
+    GLuint heightFieldLoc = glGetUniformLocation(smoothHeightShaderProgram, "heightField");
+    GLuint gridSizeLoc = glGetUniformLocation(smoothHeightShaderProgram, "gridSize");
+
+
+    glUniform1i(heightFieldLoc, 0);
+    glUniform1i(gridSizeLoc, gridSize);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
+
+    glViewport(0, 0, gridSize, gridSize);
+
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void integrateVelocity() {
     glUseProgram(velocityIntegrationShaderProgram);
 
@@ -1060,6 +1088,7 @@ int main() {
     propagateWaveShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../propagateWave.frag");
     velocityIntegrationShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../velocityIntegration.frag");
     initHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../initHeight.frag");
+    smoothHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../smoothHeight.frag");
 
     // Create quadVAO, quadVBO, quadEBO
     glGenVertexArrays(1, &quadVAO);
@@ -1182,10 +1211,13 @@ int main() {
             applyForce(window);
         }
 
+        advect(velocityTexture);
+
         advectHeight();
+        smoothHeight();
         integrateVelocity();
 
-        advect(velocityTexture);
+
 //        diffuse(velocityTexture);
 //        project();
 
