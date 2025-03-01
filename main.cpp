@@ -656,8 +656,6 @@ void applyForce(GLFWwindow *window) {
 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, velocityTexture);
-//    glActiveTexture(GL_TEXTURE6);
-//    glBindTexture(GL_TEXTURE_2D, prevHeightTexture);
 
     GLuint forcePosLoc = glGetUniformLocation(applyForceShaderProgram, "forcePos");
     GLuint forceDirLoc = glGetUniformLocation(applyForceShaderProgram, "forceDir");
@@ -683,15 +681,6 @@ void applyForce(GLFWwindow *window) {
     glBindVertexArray(quadVAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
-
-//    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, prevHeightTexture, 0);
-//
-//    glViewport(0, 0, gridSize, gridSize);
-//
-//    glBindVertexArray(quadVAO);
-//    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-//    glBindVertexArray(0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -801,26 +790,12 @@ void project() {
 }
 
 void advectHeight() {
-//    GLuint outputTexture;
-//    glGenTextures(1, &outputTexture);
-//    glBindTexture(GL_TEXTURE_2D, outputTexture);
-//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, gridSize, gridSize, 0, GL_RGBA, GL_FLOAT, nullptr);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-
     glUseProgram(advectHeightShaderProgram);
-
-//        glActiveTexture(GL_TEXTURE5);
-//    glBindTexture(GL_TEXTURE_2D, outputTexture);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, oceanHeightTexture);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, velocityTexture);
-
 
     GLuint velocityTextureLoc = glGetUniformLocation(advectHeightShaderProgram, "velocityTexture");
     GLuint heightFieldLoc = glGetUniformLocation(advectHeightShaderProgram, "heightField");
@@ -843,26 +818,7 @@ void advectHeight() {
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-//    GLuint srcFBO, dstFBO;
-//    glGenFramebuffers(1, &srcFBO);
-//    glBindFramebuffer(GL_FRAMEBUFFER, srcFBO);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
-//
-//    glGenFramebuffers(1, &dstFBO);
-//    glBindFramebuffer(GL_FRAMEBUFFER, dstFBO);
-//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, oceanHeightTexture, 0);
-//
-//    glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFBO);
-//    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFBO);
-//    glBlitFramebuffer(
-//            0, 0, gridSize, gridSize,  // Source rectangle
-//            0, 0, gridSize, gridSize,  // Destination rectangle
-//            GL_COLOR_BUFFER_BIT,  // What to copy
-//            GL_LINEAR        // Filtering mode (GL_NEAREST or GL_LINEAR)
-//    );
-
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//    glDeleteTextures(1, &outputTexture);
 }
 
 void applyGravity() {
@@ -1109,22 +1065,6 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-//    std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
-//    std::vector<GLfloat> colorData(gridSize * gridSize * 4, 0.0f);
-//
-//    for (int k = 0; k < gridSize; ++k) {
-//        for (int j = 0; j < gridSize; ++j) {
-//            for (int i = 0; i < gridSize; ++i) {
-//                int index = k * gridSize * gridSize + j * gridSize + i;
-//                // You can modify the values here if needed
-//                colorData[index * 4 + 0] = 2.0f; // Set R to 1.0f, for example
-//                colorData[index * 4 + 1] = 0.0f; // G component
-//                colorData[index * 4 + 2] = 0.0f; // B component
-//                colorData[index * 4 + 3] = 0.0f; // A component
-//            }
-//        }
-//    }
-
     // Textures
     glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, &oceanHeightTexture);
@@ -1212,19 +1152,9 @@ int main() {
         }
 
         advect(velocityTexture);
-
         advectHeight();
         smoothHeight();
         integrateVelocity();
-
-
-//        diffuse(velocityTexture);
-//        project();
-
-
-//        propagateWave();
-
-
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);

@@ -24,10 +24,10 @@ void main() {
     vec4 vT = texture(velocityTexture, texCoords + vec2(0,  1.0 / gridSize));
 
     float h = texture(heightField, texCoords).x;
-    float hL = texture(heightField, texCoords + 0.5 * vec2( -1.0 / gridSize, 0)).x;// Left
-    float hR = texture(heightField, texCoords + 0.5 * vec2( 1.0 / gridSize, 0)).x;// Right
-    float hB = texture(heightField, texCoords + 0.5 * vec2(0, -1.0 / gridSize)).x;// Bottom
-    float hT = texture(heightField, texCoords + 0.5 * vec2(0,  1.0 / gridSize)).x;// Top
+    float hL = texture(heightField, texCoords + vec2( -1.0 / gridSize, 0)).x;// Left
+    float hR = texture(heightField, texCoords + vec2( 1.0 / gridSize, 0)).x;// Right
+    float hB = texture(heightField, texCoords + vec2(0, -1.0 / gridSize)).x;// Bottom
+    float hT = texture(heightField, texCoords + vec2(0,  1.0 / gridSize)).x;// Top
 
 
     float g = 9.81;

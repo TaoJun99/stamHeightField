@@ -24,22 +24,22 @@ void main() {
 
         // Apply force within the radius
         if (distance < forceRadius) {
-//            vec2 direction = normalize(texCoords - forcePos.xz);
-//
-//
-//            float influence = exp(-distance * distance / (2.0 * forceRadius * forceRadius));
-//            vec2 currentVelocity = texture(velocityTexture, texCoords).xy;
-//            vec2 newVelocity = currentVelocity + influence * direction * forceStrength; // radial direction
-//
-//
-//            fragColor = vec4(newVelocity, 0.0, 1.0);
+            vec2 direction = normalize(texCoords - forcePos.xz);
 
-            vec2 direction = normalize(texCoords - forcePos.xz + vec2(0.01)); // Avoid instability
-            float sigma = 0.5 * forceRadius;
-            float influence = exp(-distance * distance / (2.0 * sigma * sigma));
 
-            vec2 currentVelocity = textureLod(velocityTexture, texCoords, 0.0).xy;
-            vec2 newVelocity = mix(currentVelocity, currentVelocity + influence * direction * forceStrength, 0.1); // Smooth blending
+            float influence = exp(-distance * distance / (2.0 * forceRadius * forceRadius));
+            vec2 currentVelocity = texture(velocityTexture, texCoords).xy;
+            vec2 newVelocity = currentVelocity + influence * direction * forceStrength; // radial direction
+
+
+            fragColor = vec4(newVelocity, 0.0, 1.0);
+
+//            vec2 direction = normalize(texCoords - forcePos.xz + vec2(0.01)); // Avoid instability
+//            float sigma = 0.5 * forceRadius;
+//            float influence = exp(-distance * distance / (2.0 * sigma * sigma));
+//
+//            vec2 currentVelocity = textureLod(velocityTexture, texCoords, 0.0).xy;
+//            vec2 newVelocity = mix(currentVelocity, currentVelocity + influence * direction * forceStrength, 0.1); // Smooth blending
 
             fragColor = vec4(newVelocity, 0.0, 1.0);
         } else {
