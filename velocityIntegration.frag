@@ -36,8 +36,8 @@ void main() {
 
 
     if (!isBoundary(texCoords)) {
-        float v_x = v.x - (g * (hR - hL) * 2 * halfrdx) * 80 * timeStep;
-        float v_y = v.y - (g * (hT - hB) * 2 * halfrdx) * 80 * timeStep;
+        float v_x = v.x - (g * (hR - hL) * 2 * halfrdx) * 50 * timeStep;
+        float v_y = v.y - (g * (hT - hB) * 2 * halfrdx) * 50 * timeStep;
 
         fragColor = vec4(v_x, v_y, 0.0, 0.0);
     } else {

@@ -668,7 +668,7 @@ void applyForce(GLFWwindow *window) {
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
     glUniform2f(forceDirLoc, 1.0f, 0.0f);
     glUniform1f(forceRadiusLoc, 0.01);
-    glUniform1f(forceStrengthLoc, 5.0f);
+    glUniform1f(forceStrengthLoc, 10.0f);
     glUniform1i(velocityTextureLoc, 1);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1f(sizeLoc, size);
