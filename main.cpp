@@ -53,7 +53,7 @@ const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightPosition[4] = {-10.0f, 10.0f, -10.0f, 0.0f }; // Given in eye space
 
 // Grid size
-const int gridSize = 256; // Number of segments in each direction
+const int gridSize = 500; // Number of segments in each direction
 const float size = 100.0f;  // Size of the plane
 
 std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
@@ -688,8 +688,8 @@ void applyForce(GLFWwindow *window) {
 
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
     glUniform2f(forceDirLoc, 1.0f, 0.0f);
-    glUniform1f(forceRadiusLoc, 0.1f);
-    glUniform1f(forceStrengthLoc, 0.3f);
+    glUniform1f(forceRadiusLoc, 0.01f);
+    glUniform1f(forceStrengthLoc, 0.01f);
     glUniform1i(heightTextureLoc, 0);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1f(sizeLoc, size);

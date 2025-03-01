@@ -29,9 +29,9 @@ void main() {
         float hB = texture(heightField, texCoords + vec2(0, -1.0 / gridSize)).x;
         float hT = texture(heightField, texCoords + vec2(0, 1.0 / gridSize)).x;
 
-        float laplacianH = (hL + hR + hB + hT - 4.0 * hC) * gridSize * gridSize;
+        float laplacianH = (hL + hR + hB + hT - 4.0 * hC) / (0.2 * 0.2);
 
-        float c = sqrt(9.81 * 0.7);
+        float c = 100;
         float hPrev = texture(prevHeightField, texCoords).x;
 
         // Wave propagation step
