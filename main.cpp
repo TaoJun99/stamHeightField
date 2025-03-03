@@ -55,8 +55,8 @@ const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightPosition[4] = {0.0f, 10.0f, 0.0f, 0.0f }; // Given in eye space
 
 // Grid size
-const int gridSize = 1000; // Number of segments in each direction
-const float size = 20.0f;  // Size of the plane
+const int gridSize = 1024; // Number of segments in each direction
+const float size = 100.0f;  // Size of the plane
 
 std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
 

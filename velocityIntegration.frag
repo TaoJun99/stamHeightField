@@ -39,7 +39,7 @@ void main() {
         float v_x = v.x - (g * (hR - hL) * 2 * halfrdx) * 50 * timeStep;
         float v_y = v.y - (g * (hT - hB) * 2 * halfrdx) * 50 * timeStep;
 
-        fragColor = vec4(v_x, v_y, 0.0, 0.0);
+        fragColor = 0.98 * vec4(v_x, v_y, 0.0, 0.0);
     } else {
         fragColor = v;
     }
