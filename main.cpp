@@ -580,7 +580,7 @@ void getMouseNDC(GLFWwindow* window, glm::vec2& mouseNDC) {
 
     mouseNDC.x = (2.0f * static_cast<float>(mouseX) / windowWidth) - 1.0f;
     mouseNDC.y = 1.0f - (2.0f * static_cast<float>(mouseY) / windowHeight);
-    std::cout << "Mouse: " << mouseNDC.x << ", " << mouseNDC.y  << std::endl;
+//    std::cout << "Mouse: " << mouseNDC.x << ", " << mouseNDC.y  << std::endl;
 }
 
 
@@ -997,6 +997,20 @@ void cleanup() {
 //    glDeleteProgram(skyboxShader);
 }
 
+void calculateFPS() {
+    static double lastTime = glfwGetTime();
+    static int frameCount = 0;
+
+    double currentTime = glfwGetTime();
+    frameCount++;
+
+    if (currentTime - lastTime >= 1.0) {  // Update every second
+        std::cout << "FPS: " << frameCount << std::endl;
+        frameCount = 0;
+        lastTime = currentTime;
+    }
+}
+
 
 int main() {
     // Initialize GLFW
@@ -1176,7 +1190,7 @@ int main() {
         glDepthMask(GL_TRUE);  // Re-enable depth writing
         glDisable(GL_BLEND);
 
-
+        calculateFPS();
         // Swap front and back buffers
         glfwSwapBuffers(window);
 
