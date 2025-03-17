@@ -53,7 +53,7 @@ const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightPosition[4] = {-10.0f, 10.0f, -10.0f, 0.0f }; // Given in eye space
 
 // Grid size
-const int gridSize = 500; // Number of segments in each direction
+const int gridSize = 300; // Number of segments in each direction
 const float size = 100.0f;  // Size of the plane
 
 std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);
@@ -636,7 +636,7 @@ void applyForce(GLFWwindow *window) {
 
     intersection = (intersection + size / 2) / size;
 
-    std::cout << "Intersection: " << intersection.x << ", " << intersection.y << ", " << intersection.z << std::endl;
+//    std::cout << "Intersection: " << intersection.x << ", " << intersection.y << ", " << intersection.z << std::endl;
 
     glUseProgram(applyForceShaderProgram);
 
@@ -1042,6 +1042,20 @@ void cleanup() {
 //    glDeleteProgram(skyboxShader);
 }
 
+void calculateFPS() {
+    static double lastTime = glfwGetTime();
+    static int frameCount = 0;
+
+    double currentTime = glfwGetTime();
+    frameCount++;
+
+    if (currentTime - lastTime >= 1.0) {  // Update every second
+        std::cout << "FPS: " << frameCount << std::endl;
+        frameCount = 0;
+        lastTime = currentTime;
+    }
+}
+
 
 int main() {
     // Initialize GLFW
@@ -1239,7 +1253,7 @@ int main() {
         glDepthMask(GL_TRUE);  // Re-enable depth writing
         glDisable(GL_BLEND);
 
-
+        calculateFPS();
         // Swap front and back buffers
         glfwSwapBuffers(window);
 
