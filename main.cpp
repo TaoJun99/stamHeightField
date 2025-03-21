@@ -46,13 +46,16 @@ GLuint velocityIntegrationShaderProgram;
 GLuint initHeightShaderProgram;
 GLuint smoothHeightShaderProgram;
 
+GLuint planeShaderProgram;
+GLuint tileTexture;
+
 float timeStep = 0.5;
 
 // Light info.
 const GLfloat lightAmbient[] = { 0.1f, 0.2f, 0.3f, 1.0f };
 const GLfloat lightDiffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-const GLfloat lightPosition[4] = {0.0f, 10.0f, 0.0f, 0.0f }; // Given in eye space
+const GLfloat lightPosition[4] = {0.0f, 1.0f, 0.0f, 0.0f }; // Given in eye space
 
 // Grid size
 const int gridSize = 1024; // Number of segments in each direction
@@ -73,6 +76,19 @@ unsigned int quadIndices[] = {
         0, 1, 2,
         2, 3, 0
 };
+
+float planeVertices[] = {
+        // Positions          // Texture Coords
+        -size / 2, 0.0f, -size / 2,   0.0f, 0.0f,  // Bottom-left
+        size / 2, 0.0f, -size / 2,   1.0f, 0.0f,  // Bottom-right
+        size / 2, 0.0f,  size / 2,   1.0f, 1.0f,  // Top-right
+
+        -size / 2, 0.0f, -size / 2,   0.0f, 0.0f,  // Bottom-left
+        size / 2, 0.0f,  size / 2,   1.0f, 1.0f,  // Top-right
+        -size / 2, 0.0f,  size / 2,   0.0f, 1.0f   // Top-left
+};
+
+GLuint planeVAO, planeVBO, planeEBO;
 
 // Function to read shader source from file
 std::string readShaderSource(const std::string& filePath) {
@@ -231,6 +247,7 @@ void drawWater() {
     GLuint lightDiffuseLoc = glGetUniformLocation(waterShader, "LightDiffuse");
     GLuint lightSpecularLoc = glGetUniformLocation(waterShader, "LightSpecular");
     GLuint textureLoc = glGetUniformLocation(waterShader, "inputTexture");
+    GLuint floorTextureLoc = glGetUniformLocation(waterShader, "floorTexture");
     GLuint sizeLoc = glGetUniformLocation(waterShader, "size");
     GLuint gridSizeLoc = glGetUniformLocation(waterShader, "gridSize");
     GLuint envMapLoc = glGetUniformLocation(waterShader, "envMap");
@@ -244,6 +261,7 @@ void drawWater() {
     glUniform4f(lightDiffuseLoc, lightDiffuse[0], lightDiffuse[1], lightDiffuse[2], lightDiffuse[3]);
     glUniform4f(lightSpecularLoc, lightSpecular[0], lightSpecular[1], lightSpecular[2], lightSpecular[3]);
     glUniform1i(textureLoc, 0);
+    glUniform1i(floorTextureLoc, 10);
     glUniform1f(sizeLoc, size);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1i(envMapLoc, 4);
@@ -257,6 +275,58 @@ void drawWater() {
 //    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 //    glBindVertexArray(0);
 
+}
+
+void setupPlane() {
+    glGenVertexArrays(1, &planeVAO);
+    glGenBuffers(1, &planeVBO);
+
+
+    // Bind VAO
+    glBindVertexArray(planeVAO);
+
+    // Bind and set VBO
+    glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
+
+
+    // Configure vertex attributes
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // Texture Coordinates (location = 1)
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    // Unbind VAO
+    glBindVertexArray(0);
+
+
+}
+
+void drawPlane() {
+    glUseProgram(planeShaderProgram);
+
+    glActiveTexture(GL_TEXTURE10);
+    glBindTexture(GL_TEXTURE_2D, tileTexture);
+
+
+    // Matrices
+    glm::mat4 model = glm::mat4(1.0f);  // Identity matrix (no transformation)
+
+    GLuint modelLoc = glGetUniformLocation(planeShaderProgram, "model");
+    GLuint viewLoc = glGetUniformLocation(planeShaderProgram, "view");
+    GLuint projectionLoc = glGetUniformLocation(planeShaderProgram, "projection");
+    GLuint textureLoc = glGetUniformLocation(planeShaderProgram, "texture1");
+
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+    glUniform1i(textureLoc, 10);
+
+    glBindVertexArray(planeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 }
 
 
@@ -634,7 +704,7 @@ glm::vec3 computePlaneIntersection(const glm::vec2& mouseNDC) {
     return intersection;
 }
 
-
+glm::vec3 lastIntersection = glm::vec3(0.0f, 0.0f, 0.0f);
 
 void applyForce(GLFWwindow *window) {
     int width, height;
@@ -650,7 +720,16 @@ void applyForce(GLFWwindow *window) {
 
     intersection = (intersection + size / 2) / size;
 
-//    std::cout << "Intersection: " << intersection.x << ", " << intersection.y << ", " << intersection.z << std::endl;
+    glm::vec3 diff = intersection - lastIntersection;
+
+    glm::vec2 forceDir;
+
+    if (diff.x == 0 && diff.z == 0) {
+        forceDir = glm::vec2(diff.x, diff.z);
+    } else {
+        forceDir = normalize(glm::vec2(diff.x, diff.z));
+    }
+
 
     glUseProgram(applyForceShaderProgram);
 
@@ -666,9 +745,10 @@ void applyForce(GLFWwindow *window) {
     GLuint sizeLoc = glGetUniformLocation(applyForceShaderProgram, "size");
 
     glUniform3fv(forcePosLoc, 1, glm::value_ptr(intersection));
-    glUniform2f(forceDirLoc, 1.0f, 0.0f);
-    glUniform1f(forceRadiusLoc, 0.01);
-    glUniform1f(forceStrengthLoc, 10.0f);
+    glUniform2fv(forceDirLoc, 1, glm::value_ptr(forceDir));
+//    glUniform2f(forceDirLoc, 1.0f, 0.0f);
+    glUniform1f(forceRadiusLoc, 0.005);
+    glUniform1f(forceStrengthLoc, 11.0f);
     glUniform1i(velocityTextureLoc, 1);
     glUniform1i(gridSizeLoc, gridSize);
     glUniform1f(sizeLoc, size);
@@ -681,6 +761,11 @@ void applyForce(GLFWwindow *window) {
     glBindVertexArray(quadVAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+
+    lastIntersection = intersection;
+
+//    std::cout << "last Intersection: " << lastIntersection.x << ", " << lastIntersection.y << ", " << lastIntersection.z << std::endl;
+    std::cout << "forceDir: " <<forceDir.x << ", " << forceDir.y << std::endl;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -1059,6 +1144,7 @@ int main() {
     velocityIntegrationShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../velocityIntegration.frag");
     initHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../initHeight.frag");
     smoothHeightShaderProgram = createShaderProgram("../fullScreenQuad.vert", "../smoothHeight.frag");
+    planeShaderProgram = createShaderProgram("../plane.vert", "../plane.frag");
 
     // Create quadVAO, quadVBO, quadEBO
     glGenVertexArrays(1, &quadVAO);
@@ -1135,6 +1221,23 @@ int main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+    int tileWidth, tileHeight, nrChannels;
+    unsigned char *data = stbi_load("../images/tiles.jpg", &tileWidth, &tileHeight, &nrChannels, 0);
+    GLenum format;
+    if (nrChannels == 1) format = GL_RED;
+    else if (nrChannels == 3) format = GL_RGB;
+    else if (nrChannels == 4) format = GL_RGBA;
+
+    glActiveTexture(GL_TEXTURE10);
+    glGenTextures(1, &tileTexture);
+    glBindTexture(GL_TEXTURE_2D, tileTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, tileWidth, tileHeight, 0, format, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+
     // Create framebuffer
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -1152,6 +1255,8 @@ int main() {
     setupSkybox();
 
     setupWater(); // Create vertices for the water height plane
+    setupPlane();
+
 
     while (!glfwWindowShouldClose(window)) {
         // Clear screen and depth buffer
@@ -1179,6 +1284,7 @@ int main() {
         drawSkybox();
         glEnable(GL_DEPTH_TEST);
 
+//        drawPlane();
 
         // Enable blending for water
         glEnable(GL_BLEND);
@@ -1186,6 +1292,7 @@ int main() {
         glDepthMask(GL_FALSE);  // Disable writing to the depth buffer
 
         drawWater();
+
 
         glDepthMask(GL_TRUE);  // Re-enable depth writing
         glDisable(GL_BLEND);

@@ -12,6 +12,7 @@ uniform mat4 projection;
 uniform int gridSize;
 
 uniform samplerCube envMap;
+uniform sampler2D floorTexture;
 
 in vec2 texCoords;
 in vec3 ecNormal;
@@ -30,7 +31,7 @@ void main() {
     fragColor = texture(inputTexture, texCoords);
 
     // Get view vector
-    vec3 viewVec = normalize(ecPosition);
+    vec3 viewVec = -normalize(ecPosition);
 
     // Get light vector: from surface to light source
     vec3 lightVec;
@@ -48,7 +49,7 @@ void main() {
     float L_dot_N = max(0.0, dot(lightVec, N));
     float R_dot_V = max(0.0, dot(reflectVec, viewVec));
 
-        vec4 phongColor = (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N) + (LightSpecular * k_s * pow(R_dot_V, n));
+    vec4 phongColor = (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N) + (LightSpecular * k_s * pow(R_dot_V, n));
 
     // ENV MAPPING
     // Incident ray for environment mapping is view vector
@@ -76,10 +77,20 @@ void main() {
 //
 //    vec4 scatterAmbient = vec4((firstTerm + secondTerm + thirdTerm) * k_d.xyz + ambient, 0.7);
 
+    // Compute distortion from the normal
+    vec2 distortion = N.xy * 0.02;
+
+    // Apply distortion to texture coordinates
+    vec2 refractedUV = texCoords + distortion;
+
+    // Sample the bottom texture at refracted coordinates
+    vec4 refractedColor = texture(floorTexture, refractedUV);
+
 
     // env map w blinn phong
-//        fragColor = mix(fresnel * envColor, k_s * specularIntensity + (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N), 0.3);
-        fragColor = blinnPhong;
+//        fragColor = mix(fresnel * envColor, k_s * specularIntensity + (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N), 0.5);
+//        fragColor = blinnPhong;
+    fragColor = mix(blinnPhong, refractedColor, 0.2);
 //        fragColor = envColor;
     // env map w light scatter
 //    fragColor = mix(fresnel * envColor , fresnel * k_s * LightSpecular * specularIntensity + scatterAmbient, 1.0);

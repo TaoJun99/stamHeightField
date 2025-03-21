@@ -79,7 +79,7 @@ void main() {
         float dv_dy = (vT.y - vB.y) * halfrdx;
 
         float div_v = dv_dx + dv_dy;
-        fragColor = vec4(h - 5 * timeStep * (dot(v.xy, grad_h) + h * div_v), 0.0, 0.0, 0.0);
+        fragColor = vec4(h - 10 * timeStep * (dot(v.xy, grad_h) + h * div_v), 0.0, 0.0, 0.0);
 
     } else {
         fragColor = vec4(10.0, 0.0, 0.0, 0.0);  // Preserve height at boundary

@@ -29,8 +29,8 @@ void main() {
 
             float influence = exp(-distance * distance / (2.0 * forceRadius * forceRadius));
             vec2 currentVelocity = texture(velocityTexture, texCoords).xy;
-            vec2 newVelocity = currentVelocity + influence * direction * forceStrength; // radial direction
-
+//            vec2 newVelocity = currentVelocity + influence * direction * forceStrength; // radial direction
+            vec2 newVelocity = currentVelocity + influence * forceDir * forceStrength; // radial direction
 
             fragColor = vec4(newVelocity, 0.0, 1.0);
 
