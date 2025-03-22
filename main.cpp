@@ -765,7 +765,7 @@ void applyForce(GLFWwindow *window) {
     lastIntersection = intersection;
 
 //    std::cout << "last Intersection: " << lastIntersection.x << ", " << lastIntersection.y << ", " << lastIntersection.z << std::endl;
-    std::cout << "forceDir: " <<forceDir.x << ", " << forceDir.y << std::endl;
+//    std::cout << "forceDir: " <<forceDir.x << ", " << forceDir.y << std::endl;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -1236,7 +1236,6 @@ int main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
 
     // Create framebuffer
     glGenFramebuffers(1, &framebuffer);

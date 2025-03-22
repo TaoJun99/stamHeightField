@@ -17,6 +17,7 @@ uniform sampler2D floorTexture;
 in vec2 texCoords;
 in vec3 ecNormal;
 in vec3 ecPosition;
+in vec2 floorTexCoords;
 
 out vec4 fragColor;
 
@@ -81,11 +82,10 @@ void main() {
     vec2 distortion = N.xy * 0.02;
 
     // Apply distortion to texture coordinates
-    vec2 refractedUV = texCoords + distortion;
+    vec2 refractedUV = floorTexCoords + distortion;
 
     // Sample the bottom texture at refracted coordinates
     vec4 refractedColor = texture(floorTexture, refractedUV);
-
 
     // env map w blinn phong
 //        fragColor = mix(fresnel * envColor, k_s * specularIntensity + (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N), 0.5);

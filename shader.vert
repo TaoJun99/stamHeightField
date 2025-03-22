@@ -12,6 +12,7 @@ uniform sampler2D inputTexture;
 out vec2 texCoords;
 out vec3 ecNormal;
 out vec3 ecPosition;
+out vec2 floorTexCoords;
 
 vec3 computeSurfaceNormal() {
     ivec2 texel = ivec2(round(texCoords * float(gridSize - 1)));
@@ -50,4 +51,11 @@ void main() {
 
     ecNormal = normalize(mat3(transpose(inverse(view * model))) * computeSurfaceNormal());
     ecPosition = vec3(view * model * vec4(position, 1.0));
+
+    floorTexCoords = (aPos.xz) * 0.1;
+
+    float angle = radians(0.0); // Adjust the angle to counteract slant
+    mat2 rotation = mat2(1.0, 0.0,  // Undo shear effect
+    -0.8,  1.0);
+    floorTexCoords = rotation * floorTexCoords;
 }
