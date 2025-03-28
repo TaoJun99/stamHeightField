@@ -54,7 +54,7 @@ void main() {
 
     floorTexCoords = (aPos.xz) * 0.1;
 
-    float angle = radians(0.0); // Adjust the angle to counteract slant
+
     mat2 rotation = mat2(1.0, 0.0,  // Undo shear effect
     -0.8,  1.0);
     floorTexCoords = rotation * floorTexCoords;

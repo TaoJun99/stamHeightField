@@ -49,7 +49,7 @@ GLuint smoothHeightShaderProgram;
 GLuint planeShaderProgram;
 GLuint tileTexture;
 
-float timeStep = 0.5;
+float timeStep = 2.0;
 
 // Light info.
 const GLfloat lightAmbient[] = { 0.1f, 0.2f, 0.3f, 1.0f };
@@ -58,7 +58,7 @@ const GLfloat lightSpecular[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 const GLfloat lightPosition[4] = {0.0f, 1.0f, 0.0f, 0.0f }; // Given in eye space
 
 // Grid size
-const int gridSize = 1024; // Number of segments in each direction
+const int gridSize = 1800; // Number of segments in each direction
 const float size = 100.0f;  // Size of the plane
 
 std::vector<GLfloat> zeroData(gridSize * gridSize * 4, 0.0f);

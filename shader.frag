@@ -22,7 +22,8 @@ in vec2 floorTexCoords;
 out vec4 fragColor;
 
 const vec4 k_a = vec4(0.2, 0.4, 0.5, 0.4);   // More transparent ambient
-const vec4 k_d = vec4(0.1, 0.4, 0.5, 0.3);   // Transparent diffuse
+const vec4 k_d = vec4(0.1, 0.3, 0.55, 0.3);   // Transparent diffuse
+//const vec4 k_d = vec4(0.0, 0.2, 0.45, 0.3);
 const vec4 k_s = vec4(1.0, 0.9, 0.9, 1.0);   // Transparent specular
 const float n = 100.0;                        // Sharp reflections
 
@@ -47,7 +48,7 @@ void main() {
     // Compute Phong Lighting
     vec3 reflectVec = reflect(-lightVec, N);
 
-    float L_dot_N = max(0.0, dot(lightVec, N));
+    float L_dot_N = max(0.2, dot(lightVec, N));
     float R_dot_V = max(0.0, dot(reflectVec, viewVec));
 
     vec4 phongColor = (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N) + (LightSpecular * k_s * pow(R_dot_V, n));
@@ -59,10 +60,10 @@ void main() {
     vec4 envColor = texture(envMap, wcReflectVec);
 
     vec3 L = normalize(lightVec);  // Light direction
-    vec3 V = normalize(viewVec);    // View direction
+    vec3 V = -viewVec;    // View direction
     vec3 H = normalize(L + V);      // Half-vector
 
-    float V_dot_H = max(0.0, dot(V, H));
+    float V_dot_H = max(0.0, dot(V, N));
     float exponential = pow(1 - V_dot_H, 2.0);
     float F0 = 0.02;
     float fresnel = F0 + (1.0 - F0) * exponential;
@@ -88,9 +89,9 @@ void main() {
     vec4 refractedColor = texture(floorTexture, refractedUV);
 
     // env map w blinn phong
-//        fragColor = mix(fresnel * envColor, k_s * specularIntensity + (LightAmbient * k_a) + (LightDiffuse * k_d * L_dot_N), 0.5);
+        fragColor = mix(fresnel * envColor, fresnel * k_s * specularIntensity + (LightAmbient * k_d) + (LightDiffuse * k_d * L_dot_N), 0.7);
 //        fragColor = blinnPhong;
-    fragColor = mix(blinnPhong, refractedColor, 0.2);
+//    fragColor = mix(blinnPhong, refractedColor, 0.2);
 //        fragColor = envColor;
     // env map w light scatter
 //    fragColor = mix(fresnel * envColor , fresnel * k_s * LightSpecular * specularIntensity + scatterAmbient, 1.0);
@@ -98,5 +99,5 @@ void main() {
 
 
 //    fragColor = phongColor;
-    fragColor.a = 0.7;
+    fragColor.a = 0.6;
 }
